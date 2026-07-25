@@ -1938,7 +1938,18 @@ function makePinEl(d,idx){
   });
   el.addEventListener('mouseenter',()=>{el.classList.add('hl');showPopup(idx)});
   el.addEventListener('mouseleave',()=>{el.classList.remove('hl');document.getElementById('mapPop').style.display='none'});
-  el.addEventListener('touchend',e=>{e.preventDefault();openDetail(idx)});
+  el.addEventListener('touchend',function(e){
+    e.preventDefault();
+    if(el._touchStart){
+      var t=e.changedTouches[0];
+      var dx=t.clientX-el._touchStart.x,dy=t.clientY-el._touchStart.y;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      var dt=Date.now()-el._touchStart.t;
+      el._touchStart=null;
+      if(dist>10||dt>500)return;
+    }
+    openDetail(idx);
+  });
   return el;
 }
 
