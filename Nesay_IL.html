@@ -2934,7 +2934,15 @@ function showLoader(){
   l.classList.add('show');
   // After draw completes - spin and zoom into screen
   setTimeout(function(){
-    if(star) star.classList.add('spin');
+    if(star && star.animate){
+      star.animate([
+        {transform:'rotateY(0deg) scale(1)', opacity:1},
+        {transform:'rotateY(360deg) scale(1.2)', opacity:1, offset:0.4},
+        {transform:'rotateY(360deg) scale(12)', opacity:0}
+      ], {duration:1400, easing:'cubic-bezier(0.4,0,0.2,1)', fill:'forwards'});
+    } else if(star){
+      star.classList.add('spin');
+    }
     setTimeout(function(){
       l.style.transition='opacity 0.3s';
       l.style.opacity='0';
