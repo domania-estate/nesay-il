@@ -1452,7 +1452,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
           <div class="asg hid" id="addrSugg"></div>
         </div>
         <div class="fgrp" style="flex:1">
-          <input class="finput" id="addrHouse" type="text" placeholder=" " disabled style="opacity:.5">
+          <input class="finput" id="addrHouse" type="text" placeholder=" " disabled style="opacity:.5" oninput="refineAddrCoords()">
           <label class="flabel">Дом №</label>
         </div>
       </div>
@@ -2167,6 +2167,32 @@ function selAddrManual(){
   showToast('📍 Адрес введён вручную');
 }
 
+let _refineTimer=null;
+async function refineAddrCoords(){
+  clearTimeout(_refineTimer);
+  _refineTimer=setTimeout(async function(){
+    try{
+      const street=document.getElementById('addrInp')?.value||'';
+      const house=document.getElementById('addrHouse')?.value||'';
+      const cityName=document.getElementById('addrCityName')?.value||(selectedCityData&&selectedCityData.name)||'';
+      if(!street||!house||!cityName)return;
+      const q=street+' '+house+', '+cityName;
+      const cur=/[\u0590-\u05FF]/.test(street)?'he':/[\u0400-\u04FF]/.test(street)?'ru':'en';
+      const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&accept-language=${cur}&countrycodes=il&limit=3&addressdetails=1`;
+      const res=await fetch(url,{headers:{'Accept-Language':cur}});
+      const data=await res.json();
+      if(!data||!data.length)return;
+      // Предпочитаем результат с точным совпадением номера дома
+      const exact=data.find(function(f){return f.address&&String(f.address.house_number)===String(house);});
+      const best=exact||data[0];
+      if(best&&best.lat&&best.lon){
+        document.getElementById('addrLat').value=best.lat;
+        document.getElementById('addrLng').value=best.lon;
+        if(map&&mapLoaded)map.flyTo({center:[parseFloat(best.lon),parseFloat(best.lat)],zoom:18,pitch:55,bearing:-15,duration:700,essential:true});
+      }
+    }catch(e){}
+  },600);
+}
 function selAddr(street,houseNum,lat,lng){
   const inp=document.getElementById('addrInp');
   const house=document.getElementById('addrHouse');
