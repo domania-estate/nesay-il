@@ -263,6 +263,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .fgrp-row .fgrp{margin-bottom:0}
 .flabel{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--ink3);font-family:var(--font);pointer-events:none;transition:all .2s;background:var(--white);padding:0 4px;z-index:1}
 .finput{width:100%;height:52px;padding:16px 14px 6px;border:1.5px solid #e5e5ea;border-radius:12px;font-family:var(--font);font-size:14px;color:#1d1d1f;outline:none;transition:border .2s,box-shadow .2s;background:#fff}
+@media(max-width:768px){.finput{font-size:16px}}
 .finput:focus{border-color:#1d1d1f;box-shadow:0 0 0 3px rgba(29,29,31,.08)}
 .finput:focus~.flabel,.finput:not(:placeholder-shown)~.flabel,.finput.has-val~.flabel{top:12px;transform:none;font-size:10px;font-weight:700;color:#86868b}
 .finput:not(:focus)~.flabel{color:#86868b}
@@ -1091,6 +1092,9 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 #loader-star {
   overflow:visible;
   transform-origin:50% 50%;
+  -webkit-transform:translateZ(0);
+  will-change:transform;
+  isolation:isolate;
 }
 
 /* Triangle 1 pointing UP - blue */
