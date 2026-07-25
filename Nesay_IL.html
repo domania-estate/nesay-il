@@ -1097,6 +1097,8 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 
 #loader-star {
   overflow:visible;
+}
+#loader-star-wrap {
   transform-origin:50% 50%;
   transform-style:preserve-3d;
   -webkit-transform-style:preserve-3d;
@@ -2927,7 +2929,7 @@ function verify2FA(){const code=Array.from(document.querySelectorAll('#tfd input
 function showLoader(){
   var l=document.getElementById('nesay-loader');
   if(!l)return;
-  var star=document.getElementById('loader-star');
+  var star=document.getElementById('loader-star-wrap');
   // Reset animations
   ['.star-t1','.star-t2'].forEach(function(sel){
     var p=l.querySelector(sel);
@@ -3836,6 +3838,7 @@ function copyRefLink(){
 <!-- ISRAEL LOADER -->
 <div id="nesay-loader">
   <div class="loader-wrap">
+    <div id="loader-star-wrap" style="width:160px;height:160px">
     <svg id="loader-star" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="160" height="160">
       <defs>
         <filter id="glow-blue" x="-50%" y="-50%" width="200%" height="200%">
@@ -3854,6 +3857,7 @@ function copyRefLink(){
       <path class="star-t2" filter="url(#glow-white)"
         d="M60 115 L12 35 L108 35 Z"/>
     </svg>
+    </div>
     <div class="loader-text">NESAY<span>.IL</span></div>
     <div class="loader-dots"><span></span><span></span><span></span></div>
   </div>
@@ -3876,7 +3880,7 @@ function copyRefLink(){
   window._dbgTestStar=function(){
     document.getElementById('dbgPanel').style.display='block';
     add('TEST','starting manual test');
-    var star=document.getElementById('loader-star');
+    var star=document.getElementById('loader-star-wrap');
     add('TEST','star found: '+!!star);
     add('TEST','star.animate exists: '+!!(star&&star.animate));
     var l=document.getElementById('nesay-loader');
