@@ -3855,5 +3855,44 @@ function copyRefLink(){
   </div>
 </div>
 
+<div id="dbgPanel" style="position:fixed;bottom:0;left:0;right:0;max-height:35vh;overflow-y:auto;background:rgba(0,0,0,.92);color:#0f0;font-family:monospace;font-size:10px;padding:8px;z-index:999999;display:none;white-space:pre-wrap;word-break:break-all"></div>
+<button id="dbgToggle" style="position:fixed;bottom:8px;right:8px;z-index:1000000;background:#c00;color:#fff;border:none;padding:6px 10px;border-radius:8px;font-size:11px" onclick="document.getElementById('dbgPanel').style.display=document.getElementById('dbgPanel').style.display==='none'?'block':'none'">DEBUG</button>
+<button id="dbgStarTest" style="position:fixed;bottom:8px;right:90px;z-index:1000000;background:#06c;color:#fff;border:none;padding:6px 10px;border-radius:8px;font-size:11px" onclick="window._dbgTestStar()">TEST STAR</button>
+<script>
+(function(){
+  var log=[];
+  function add(type,msg){
+    log.push('['+type+'] '+msg);
+    var p=document.getElementById('dbgPanel');
+    if(p)p.textContent=log.slice(-60).join('\n');
+  }
+  window.addEventListener('error',function(e){
+    add('ERROR', (e.message||'')+' @ '+(e.filename||'')+':'+(e.lineno||'')+':'+(e.colno||''));
+  });
+  window._dbgTestStar=function(){
+    document.getElementById('dbgPanel').style.display='block';
+    add('TEST','starting manual test');
+    var star=document.getElementById('loader-star');
+    add('TEST','star found: '+!!star);
+    add('TEST','star.animate exists: '+!!(star&&star.animate));
+    var l=document.getElementById('nesay-loader');
+    add('TEST','loader found: '+!!l);
+    try{ showLoader(); add('TEST','showLoader() called OK'); }
+    catch(err){ add('TEST-ERROR','showLoader threw: '+err.message); }
+    setTimeout(function(){
+      try{
+        var cs=window.getComputedStyle(star);
+        add('TEST','at 2.5s transform='+cs.transform+' opacity='+cs.opacity);
+      }catch(e){add('TEST-ERROR','check failed: '+e.message);}
+    },2500);
+    setTimeout(function(){
+      try{
+        var cs=window.getComputedStyle(star);
+        add('TEST','at 3.2s transform='+cs.transform+' opacity='+cs.opacity);
+      }catch(e){add('TEST-ERROR','check failed: '+e.message);}
+    },3200);
+  };
+})();
+</script>
 </body>
 </html>
