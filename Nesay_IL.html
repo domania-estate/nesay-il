@@ -1255,8 +1255,8 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <button class="mcb" id="satBtn" onclick="toggleSat()">🛰</button>
     </div>
     <div class="mleg">
-      <div class="mlr"><div class="mld r"></div data-i18n="nav.rent" data-i18n="map.rent">🔵 Аренда</div>
-      <div class="mlr"><div class="mld s"></div data-i18n="nav.sale" data-i18n="map.sale">🟠 Продажа</div>
+      <div class="mlr"><div class="mld r"></div><span data-i18n="map.rent">🔵 Аренда</span></div>
+      <div class="mlr"><div class="mld s"></div><span data-i18n="map.sale">🟠 Продажа</span></div>
     </div>
     <div id="mapPop" class="mpop" style="display:none"></div>
     <div id="drawZoneOverlay">
@@ -1631,7 +1631,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <button class="cabt" onclick="swCab('list')" data-i18n="cab.listings">Объявления</button>
       <button class="cabt" onclick="swCab('bill')" data-i18n="cab.billing">Подписка</button>
       <button class="cabt" onclick="swCab('prof')" data-i18n="cab.profile">Профиль</button>
-<button class="cabt" onclick="swCab('ref')">🔗 Рефералы</button>
+<button class="cabt" onclick="swCab('ref')"><span data-i18n="ref.tab">🔗 Рефералы</span></button>
 
     </div>
   </div>
@@ -2551,7 +2551,7 @@ async function _publish(){
 
   const tbl=document.getElementById('cabListTbl');
   if(tbl){const tr=document.createElement('tr');const newIdx=listings.indexOf(newL);
-    tr.innerHTML=`<td><b>${addr.split(',')[0]}</b><br><span style="font-size:11px;color:var(--ink3)">₪${price.toLocaleString()}${isR?'/мес':''} · ${rooms} комн.</span></td><td><span class="sd sa"></span>Активно</td><td>0</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="mb2" onclick="openPromoFromCab(${newIdx})" style="color:var(--orange);border-color:var(--orange)">⚡ Продвинуть</button><button class="mb2 dn">Снять</button></td>`;
+    tr.innerHTML=`<td><b>${addr.split(',')[0]}</b><br><span style="font-size:11px;color:var(--ink3)">₪${price.toLocaleString()}${isR?t('per_mo'):''} · ${rooms} ${t('card.rooms')}</span></td><td><span class="sd sa"></span>${t('cab.active')}</td><td>0</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="mb2" onclick="openPromoFromCab(${newIdx})" style="color:var(--orange);border-color:var(--orange)">${t('cab.promote')}</button><button class="mb2 dn">${t('cab.remove')}</button></td>`;
     tbl.insertBefore(tr,tbl.firstChild)}
 
   const exp=new Date(Date.now()+30*24*3600*1000);
@@ -2677,7 +2677,7 @@ const I18N={
     'cab.topup_entry':'Пополнение',
     'cab.save':'Сохранить','cab.logout':'Выйти',
     'cab.phone':'Телефон','cab.name':'Имя',
-    'ref.title':'🔗 Реферальная программа','ref.link_label':'Твоя реферальная ссылка','ref.copy':'📋 Скопировать',
+    'ref.tab':'🔗 Рефералы','ref.title':'🔗 Реферальная программа','ref.link_label':'Твоя реферальная ссылка','ref.copy':'📋 Скопировать',
     'ref.invited':'Приглашено','ref.earned':'Кредитов заработано','ref.how':'Как это работает:',
     'ref.step1':'🎁 Ты приглашаешь друга → он регистрируется по твоей ссылке',
     'ref.step2':'✅ Ты получаешь +50 кредитов','ref.step3':'✅ Друг получает +20 кредитов',
@@ -2790,7 +2790,7 @@ const I18N={
     'cab.topup_entry':'Top-up',
     'cab.save':'Save','cab.logout':'Sign Out',
     'cab.phone':'Phone','cab.name':'Name',
-    'ref.title':'🔗 Referral program','ref.link_label':'Your referral link','ref.copy':'📋 Copy',
+    'ref.tab':'🔗 Referrals','ref.title':'🔗 Referral program','ref.link_label':'Your referral link','ref.copy':'📋 Copy',
     'ref.invited':'Invited','ref.earned':'Credits earned','ref.how':'How it works:',
     'ref.step1':'🎁 Invite a friend → they sign up with your link',
     'ref.step2':'✅ You get +50 credits','ref.step3':'✅ Your friend gets +20 credits',
@@ -2901,7 +2901,7 @@ const I18N={
     'cab.topup_entry':'הפקדה',
     'cab.save':'שמור','cab.logout':'יציאה',
     'cab.phone':'טלפון','cab.name':'שם',
-    'ref.title':'🔗 תוכנית הפניות','ref.link_label':'קישור ההפניה שלך','ref.copy':'📋 העתק',
+    'ref.tab':'🔗 הפניות','ref.title':'🔗 תוכנית הפניות','ref.link_label':'קישור ההפניה שלך','ref.copy':'📋 העתק',
     'ref.invited':'הוזמנו','ref.earned':'קרדיטים שנצברו','ref.how':'איך זה עובד:',
     'ref.step1':'🎁 אתה מזמין חבר ← הוא נרשם עם הקישור שלך',
     'ref.step2':'✅ אתה מקבל +50 קרדיטים','ref.step3':'✅ החבר מקבל +20 קרדיטים',
@@ -3067,28 +3067,28 @@ async function loadMyListings(){
   if(!token)return;
   const tbl=document.getElementById('cabListTbl');
   if(!tbl)return;
-  tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">Загрузка...</td></tr>';
+  tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">'+t('loading')+'</td></tr>';
   try{
     const res=await fetch(`${API}/listings/my/all`,{headers:{Authorization:'Bearer '+token}});
-    if(!res.ok){tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">Ошибка загрузки</td></tr>';return}
+    if(!res.ok){tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">'+t('err.load')+'</td></tr>';return}
     const data=await res.json();
-    if(!data.length){tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">Объявлений пока нет</td></tr>';return}
+    if(!data.length){tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">'+t('no_listings')+'</td></tr>';return}
     tbl.innerHTML=data.map((d,i)=>{
       const cn=d.city_name||{};const city=cn.ru||cn.en||'';
       const addr=(d.street||'')+(d.house_number?' '+d.house_number:'')+(city?', '+city:'');
-      const price='₪'+parseInt(d.price).toLocaleString()+(d.deal_type==='rent'?'/мес':'');
-      const status=d.status==='active'?'<span class="sd sa"></span>Активно':'<span class="sd sx"></span>Неактивно';
+      const price='₪'+parseInt(d.price).toLocaleString()+(d.deal_type==='rent'?t('per_mo'):'');
+      const status=d.status==='active'?'<span class="sd sa"></span>'+t('cab.active'):'<span class="sd sx"></span>'+t('cab.inactive');
       return `<tr>
-        <td><b>${addr.split(',')[0]||'Без адреса'}</b><br><span style="font-size:11px;color:var(--ink3)">${price} · ${d.rooms} комн.</span></td>
+        <td><b>${addr.split(',')[0]||'Без адреса'}</b><br><span style="font-size:11px;color:var(--ink3)">${price} · ${d.rooms} ${t('card.rooms')}</span></td>
         <td>${status}</td>
         <td>👁 ${d.views||0} &nbsp; ❤️ ${d.fav_count||0}</td>
         <td style="display:flex;gap:5px;flex-wrap:wrap">
-          <button class="mb2" onclick="openPromoModal()" style="color:var(--orange);border-color:var(--orange)">⚡ ТОП</button>
-          <button class="mb2 dn" onclick="deleteMyListing('${d.id}',this)">Снять</button>
+          <button class="mb2" onclick="openPromoModal()" style="color:var(--orange);border-color:var(--orange)">${t('cab.promote')}</button>
+          <button class="mb2 dn" onclick="deleteMyListing('${d.id}',this)">${t('cab.remove')}</button>
         </td>
       </tr>`;
     }).join('');
-  }catch(e){tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">Сервер недоступен</td></tr>'}
+  }catch(e){tbl.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ink3);padding:20px">'+t('server.down')+'</td></tr>'}
 }
 async function deleteMyListing(id,btn){
   if(!confirm(t('confirm.remove')))return;
@@ -3199,7 +3199,7 @@ document.addEventListener('keydown',e=>{
 let topupAmount=500,topupCredits=5;
 function openTopup(){document.getElementById('topupOvl').classList.add('open');document.getElementById('topupBal').textContent='₪'+userCredits}
 function closeTopup(){document.getElementById('topupOvl').classList.remove('open')}
-function selTopup(card,amount,credits){document.querySelectorAll('#topupOvl .tc').forEach(c=>c.classList.remove('on'));card.classList.add('on');topupAmount=amount;topupCredits=amount;/* shekels = amount */document.getElementById('topupTotal').textContent='₪'+amount.toLocaleString();document.getElementById('topupBtn').textContent='Пополнить на ₪'+amount.toLocaleString()}
+function selTopup(card,amount,credits){document.querySelectorAll('#topupOvl .tc').forEach(c=>c.classList.remove('on'));card.classList.add('on');topupAmount=amount;topupCredits=amount;/* shekels = amount */document.getElementById('topupTotal').textContent='₪'+amount.toLocaleString();document.getElementById('topupBtn').textContent=t('topup.topup_word')+' ₪'+amount.toLocaleString()}
 async function doTopup(){
   const card=document.getElementById('topupCard')?.value?.replace(/\s/g,'');
   const exp=document.getElementById('topupExp')?.value;
@@ -3207,7 +3207,7 @@ async function doTopup(){
   if(!card||card.length<16){showToast('❌ Введите номер карты');return}
   if(!exp||exp.length<5){showToast('❌ Введите срок действия');return}
   if(!cvv||cvv.length<3){showToast('❌ Введите CVV');return}
-  const btn=document.getElementById('topupBtn');btn.textContent='Обрабатываем...';btn.disabled=true;
+  const btn=document.getElementById('topupBtn');btn.textContent=t('topup.processing');btn.disabled=true;
   setTimeout(async()=>{
     try{
       const token=localStorage.getItem('nesay_token');
@@ -3219,11 +3219,11 @@ async function doTopup(){
         const cabCr=document.getElementById('cabCr');if(cabCr)cabCr.textContent='₪'+userCredits;
         const tb=document.getElementById('topupBal');if(tb)tb.textContent='₪'+userCredits;
         const hist=document.getElementById('txHistory');
-        if(hist){if(hist.textContent.includes('Пока нет'))hist.innerHTML='';const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px';row.innerHTML=`<span style="color:var(--ink2)">Пополнение</span><span style="color:var(--green);font-weight:700">+₪${topupAmount}</span>`;hist.insertBefore(row,hist.firstChild)}
+        if(hist){if(hist.querySelector('[data-i18n="cab.no_tx"]'))hist.innerHTML='';const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px';row.innerHTML=`<span style="color:var(--ink2)">${t('cab.topup_entry')}</span><span style="color:var(--green);font-weight:700">+₪${topupAmount}</span>`;hist.insertBefore(row,hist.firstChild)}
         closeTopup();showToast('✅ Баланс пополнен на ₪'+topupAmount+'!');
       }else{showToast('❌ Ошибка оплаты')}
     }catch(e){userCredits+=topupAmount;document.getElementById('navCr').textContent='₪'+userCredits+' баланс';const cabCr=document.getElementById('cabCr');if(cabCr)cabCr.textContent='₪'+userCredits;closeTopup();showToast('✅ Баланс пополнен на ₪'+topupAmount+'!')}
-    btn.textContent='Пополнить на ₪'+topupAmount.toLocaleString();hideLoader();btn.disabled=false;
+    btn.textContent=t('topup.topup_word')+' ₪'+topupAmount.toLocaleString();hideLoader();btn.disabled=false;
   },2000);
 }
 
