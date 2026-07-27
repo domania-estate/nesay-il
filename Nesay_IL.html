@@ -528,7 +528,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .topup-pay-btn:disabled{background:#acacb4;transform:none;box-shadow:none;cursor:not-allowed}
 
 /* Toast */
-.tst{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 22px;border-radius:100px;font-size:13px;font-weight:600;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.tst{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(8px);background:rgba(20,20,26,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;padding:13px 24px;border-radius:14px;font-size:13.5px;font-weight:600;z-index:1000;box-shadow:0 8px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .25s ease,transform .25s ease;pointer-events:none;white-space:nowrap;letter-spacing:.1px}
+.tst.show{transform:translateX(-50%) translateY(0)}
 .tst.show{opacity:1}
 .wab{position:fixed;bottom:24px;right:24px;z-index:100;width:52px;height:52px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;font-size:23px;box-shadow:0 4px 16px rgba(37,211,102,.38);cursor:pointer;text-decoration:none;transition:transform .15s}
 .wab:hover{transform:scale(1.08)}
@@ -1524,7 +1525,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
     <!-- STEP 3 -->
     <div id="pst3" style="display:none">
       <div style="background:var(--greenbg);border-radius:14px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(26,125,78,.15)">
-        <div><div style="font-size:13px;color:var(--green);font-weight:700">💎 Баланс: <b id="crBal">₪0</b></div><div style="font-size:12px;color:var(--ink2);margin-top:2px">₪100 = 1 объявление на 30 дней</div></div>
+        <div><div style="font-size:13px;color:var(--green);font-weight:700">💎 Баланс: <b id="crBal">₪0</b></div><div style="font-size:12px;color:var(--ink2);margin-top:2px" data-i18n="cab.balance_hint">₪100 = 1 объявление на 30 дней</div></div>
         <button style="padding:8px 16px;border-radius:10px;border:none;background:var(--green);color:#fff;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer" onclick="showToast('...')">Купить ещё</button>
       </div>
       <div class="tg">
@@ -1654,7 +1655,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <div>
         <div style="font-size:12px;color:var(--ink3);margin-bottom:4px" data-i18n="cab.balance">Баланс</div>
         <div class="crv" id="cabCr">₪0</div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:4px">₪100 = 1 объявление на 30 дней</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px" data-i18n="cab.balance_hint">₪100 = 1 объявление на 30 дней</div>
       </div>
       <button style="padding:10px 20px;border-radius:10px;border:none;background:var(--c);color:#fff;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer" onclick="openTopup()" data-i18n="cab.topup">Пополнить</button>
     </div>
@@ -1814,7 +1815,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 </div>
 </div>
 
-<div class="tst" id="toast"></div>
+<div class="tst" id="toast" dir="auto"></div>
 <button class="cf" onclick="openChat()">💬<span class="cn">3</span></button>
 <a href="#" class="wab" onclick="showToast('WhatsApp...'); return false;">💬</a>
 <script>
@@ -2719,6 +2720,7 @@ const I18N={
     'topup.pay_method':'Способ оплаты',
     'pub.1_listing':'1 объявление','pub.per_unit':'₪100/шт',
     'topup.listings':'объявлений','topup.secure':'🔒 Защищённая оплата через Tranzila','topup.no_store':'Данные не хранятся',
+    'cab.balance_hint':'₪100 = 1 объявление на 30 дней',
   },
   en:{
     'nav.all':'All','nav.rent':'Rent','nav.sale':'Sale',
@@ -2831,6 +2833,7 @@ const I18N={
     'topup.pay_method':'Payment method',
     'pub.1_listing':'1 listing','pub.per_unit':'₪100/each',
     'topup.listings':'listings','topup.secure':'🔒 Secure payment via Tranzila','topup.no_store':'Data is not stored',
+    'cab.balance_hint':'₪100 = 1 listing for 30 days',
   },
   he:{
     'nav.all':'הכל','nav.rent':'שכירות','nav.sale':'מכירה',
@@ -2943,6 +2946,7 @@ const I18N={
     'topup.pay_method':'אמצעי תשלום',
     'pub.1_listing':'מודעה אחת','pub.per_unit':'₪100/יחידה',
     'topup.listings':'מודעות','topup.secure':'🔒 תשלום מאובטח דרך Tranzila','topup.no_store':'הנתונים אינם נשמרים',
+    'cab.balance_hint':'₪100 = מודעה אחת ל-30 יום',
   }
 };
 
@@ -3891,7 +3895,7 @@ async function loadRefStats(){
     if(cr)cr.textContent=(d.total_referrals||0)*50;
     const list=document.getElementById('refList');
     if(list&&d.referrals&&d.referrals.length){
-      list.innerHTML='<div style="font-weight:700;margin-bottom:8px">Приглашённые пользователи:</div>'+
+      list.innerHTML='<div style="font-weight:700;margin-bottom:8px">'+t('ref.invited_users')+'</div>'+
       d.referrals.map(r=>'<div style="padding:10px;background:#F8F8F8;border-radius:10px;margin-bottom:8px;font-size:13px">👤 '+r.name+' <span style="color:#888;float:right">'+new Date(r.created_at).toLocaleDateString()+'</span></div>').join('');
     }
   }catch(e){console.log('ref stats error',e);}
