@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../../config/db');
-const { requireAuth, optionalAuth } = require('../middleware/auth');
+const { requireAuth, optionalAuth, requireModerator } = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 
 const router = express.Router();
@@ -63,6 +63,46 @@ router.get('/my/all', requireAuth, async (req, res) => {
   }
 });
 
+// Проверка адреса через Nominatim — существует ли такая точка в Израиле
+async function verifyAddress(lat, lng) {
+  try {
+    if (!lat || !lng) return { ok: false, reason: 'Координаты не указаны' };
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'NesayIL/1.0' } });
+    const data = await res.json();
+    if (!data || data.error) return { ok: false, reason: 'Адрес не найден на карте' };
+    const cc = data.address && data.address.country_code;
+    if (cc !== 'il') return { ok: false, reason: 'Адрес находится не в Израиле' };
+    return { ok: true };
+  } catch (e) {
+    // Если геокодер недоступен — не блокируем публикацию, а отправляем на ручную проверку
+    return { ok: false, reason: 'Не удалось проверить адрес автоматически' };
+  }
+}
+
+// Проверка цены — не занижена ли относительно похожих объявлений в этом городе
+async function verifyPrice(cityId, dealType, price, rooms) {
+  try {
+    const result = await db.query(`
+      SELECT AVG(price) as avg_price, COUNT(*) as cnt
+      FROM listings
+      WHERE city_id = $1 AND deal_type = $2 AND status = 'active'
+        AND rooms BETWEEN $3 - 1 AND $3 + 1
+    `, [cityId, dealType, parseFloat(rooms) || 1]);
+    const row = result.rows[0];
+    const avg = parseFloat(row.avg_price);
+    const cnt = parseInt(row.cnt);
+    // Недостаточно данных для сравнения — не блокируем
+    if (!avg || cnt < 3) return { ok: true };
+    if (price < avg * 0.5) {
+      return { ok: false, reason: `Цена (₪${price}) значительно ниже средней по району (₪${Math.round(avg)})` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: true };
+  }
+}
+
 // Создать объявление
 router.post('/', requireAuth, async (req, res) => {
   const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description } = req.body;
@@ -72,17 +112,23 @@ router.post('/', requireAuth, async (req, res) => {
   try {
     const userResult = await db.query('SELECT credits, verified FROM users WHERE id = $1', [req.user.id]);
     const credits = userResult.rows[0]?.credits || 0;
-    if (req.user.role === 'agent' && !userResult.rows[0]?.verified) {
-      return res.status(403).json({ error: 'Ваш профиль ещё проверяется модератором. Публикация станет доступна после верификации.' });
-    }
     if (credits < 100) return res.status(402).json({ error: 'Недостаточно средств. Минимум ₪100 для публикации' });
+
+    // Автомодерация: проверяем адрес и цену
+    const addrCheck = await verifyAddress(lat, lng);
+    const priceCheck = await verifyPrice(parseInt(city_id) || 1, deal_type, parseInt(price), rooms);
+    const reasons = [];
+    if (!addrCheck.ok) reasons.push(addrCheck.reason);
+    if (!priceCheck.ok) reasons.push(priceCheck.reason);
+    const status = reasons.length ? 'pending_review' : 'active';
+    const moderationReason = reasons.length ? reasons.join('; ') : null;
 
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
       const result = await client.query(`
-        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         RETURNING *
       `, [
         req.user.id, parseInt(city_id) || 1, deal_type, property_type || 'apartment',
@@ -90,13 +136,14 @@ router.post('/', requireAuth, async (req, res) => {
         parseFloat(lat) || null, parseFloat(lng) || null,
         parseInt(price), parseFloat(rooms) || 1,
         sqm ? parseInt(sqm) : null,
-        JSON.stringify(description || {})
+        JSON.stringify(description || {}),
+        status, moderationReason
       ]);
       // Снимаем 100 шекелей за публикацию
       await client.query('UPDATE users SET credits = credits - 100 WHERE id = $1', [req.user.id]);
       await client.query('COMMIT');
-      console.log('✅ Listing created:', result.rows[0].id);
-      res.status(201).json(result.rows[0]);
+      console.log('✅ Listing created:', result.rows[0].id, 'status:', status);
+      res.status(201).json({ ...result.rows[0], pending: status === 'pending_review' });
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -190,6 +237,53 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.post('/:id/boost', requireAuth, async (req, res) => {
   try {
     await db.query(`UPDATE listings SET promoted = true, promo_until = NOW() + INTERVAL '24 hours' WHERE id = $1 AND user_id = $2`, [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ═══ МОДЕРАЦИЯ ═══
+// Список объявлений на проверке
+router.get('/moderation/pending', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT l.*, c.name AS city_name, u.name AS agent_name, u.email AS agent_email
+      FROM listings l
+      JOIN cities c ON c.id = l.city_id
+      JOIN users u ON u.id = l.user_id
+      WHERE l.status = 'pending_review'
+      ORDER BY l.created_at ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Одобрить объявление
+router.post('/:id/approve', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(
+      "UPDATE listings SET status = 'active', moderation_reason = NULL WHERE id = $1 AND status = 'pending_review' RETURNING id",
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Отклонить объявление
+router.post('/:id/reject', requireModerator, async (req, res) => {
+  const { reason } = req.body;
+  try {
+    const result = await db.query(
+      "UPDATE listings SET status = 'removed', moderation_reason = $2 WHERE id = $1 AND status = 'pending_review' RETURNING id",
+      [req.params.id, reason || 'Отклонено модератором']
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
