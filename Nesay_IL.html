@@ -1733,25 +1733,25 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
     <div class="tplan" onclick="selTopup(this,100,1)" id="tp100">
       <div class="tplan-name" data-i18n="topup.plan1">Старт</div>
       <div class="tplan-price">₪100</div>
-      <div class="tplan-desc">1 объявление</div>
+      <div class="tplan-desc" data-i18n="pub.1_listing">1 объявление</div>
     </div>
     <div class="tplan tplan-active" onclick="selTopup(this,500,5)" id="tp500">
       <div class="tplan-badge" data-i18n="topup.popular">Популярный</div>
       <div class="tplan-name" data-i18n="topup.plan2">Базовый</div>
       <div class="tplan-price">₪500</div>
-      <div class="tplan-desc">5 объявлений</div>
+      <div class="tplan-desc">5 <span data-i18n="topup.listings">объявлений</span></div>
       <div class="tplan-save">₪100/шт</div>
     </div>
     <div class="tplan" onclick="selTopup(this,1000,12)" id="tp1000">
       <div class="tplan-name" data-i18n="topup.plan3">Профи</div>
       <div class="tplan-price">₪1,000</div>
-      <div class="tplan-desc">12 объявлений</div>
+      <div class="tplan-desc">12 <span data-i18n="topup.listings">объявлений</span></div>
       <div class="tplan-save" style="color:var(--green)">−17%</div>
     </div>
     <div class="tplan" onclick="selTopup(this,2000,30)" id="tp2000">
       <div class="tplan-name" data-i18n="topup.plan4">Агентство</div>
       <div class="tplan-price">₪2,000</div>
-      <div class="tplan-desc">30 объявлений</div>
+      <div class="tplan-desc">30 <span data-i18n="topup.listings">объявлений</span></div>
       <div class="tplan-save" style="color:var(--green)">−33%</div>
     </div>
   </div>
@@ -1787,8 +1787,8 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <span id="topupTotal" style="font-weight:700">₪500</span>
     </div>
     <div class="topup-summary-row" style="font-size:11px;color:var(--ink3)">
-      <span>🔒 Защищённая оплата через Tranzila</span>
-      <span>Данные не хранятся</span>
+      <span data-i18n="topup.secure">🔒 Защищённая оплата через Tranzila</span>
+      <span data-i18n="topup.no_store">Данные не хранятся</span>
     </div>
   </div>
 
@@ -2718,6 +2718,7 @@ const I18N={
     'topup.success':'✅ Баланс пополнен на',
     'topup.pay_method':'Способ оплаты',
     'pub.1_listing':'1 объявление','pub.per_unit':'₪100/шт',
+    'topup.listings':'объявлений','topup.secure':'🔒 Защищённая оплата через Tranzila','topup.no_store':'Данные не хранятся',
   },
   en:{
     'nav.all':'All','nav.rent':'Rent','nav.sale':'Sale',
@@ -2829,6 +2830,7 @@ const I18N={
     'topup.processing':'Processing...','topup.topup_word':'Pay','topup.success':'✅ Balance topped up by',
     'topup.pay_method':'Payment method',
     'pub.1_listing':'1 listing','pub.per_unit':'₪100/each',
+    'topup.listings':'listings','topup.secure':'🔒 Secure payment via Tranzila','topup.no_store':'Data is not stored',
   },
   he:{
     'nav.all':'הכל','nav.rent':'שכירות','nav.sale':'מכירה',
@@ -2940,6 +2942,7 @@ const I18N={
     'topup.processing':'מעבד...','topup.topup_word':'שלם','topup.success':'✅ היתרה הוטענה ב-',
     'topup.pay_method':'אמצעי תשלום',
     'pub.1_listing':'מודעה אחת','pub.per_unit':'₪100/יחידה',
+    'topup.listings':'מודעות','topup.secure':'🔒 תשלום מאובטח דרך Tranzila','topup.no_store':'הנתונים אינם נשמרים',
   }
 };
 
