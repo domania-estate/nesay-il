@@ -1496,7 +1496,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <button onclick="genAI()" style="margin-bottom:16px;font-family:var(--font);font-size:12px;font-weight:700;color:var(--c);background:var(--cl);border:1px solid rgba(28,110,242,.2);padding:7px 14px;border-radius:8px;cursor:pointer" data-i18n="pub.ai">✨ AI описание</button>
 
       <div style="display:flex;justify-content:flex-end">
-        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep(2)">Далее: Фото →</button>
+        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep(2)" data-i18n="pub.next">Далее →</button>
       </div>
     </div>
 
@@ -1577,15 +1577,15 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
     <div id="pstSuc" style="display:none">
       <div class="sc2">
         <div style="font-size:64px;margin-bottom:16px">✅</div>
-        <h3 style="font-size:22px;font-weight:900;margin-bottom:8px;color:var(--ink)">Объявление опубликовано!</h3>
+        <h3 style="font-size:22px;font-weight:900;margin-bottom:8px;color:var(--ink)" data-i18n="pub.success">Объявление опубликовано!</h3>
         <p style="font-size:14px;color:var(--ink2);line-height:1.6">Объект уже отображается на карте и в ленте поиска.</p>
         <div class="sri">
-          <div class="sr2"><span class="sk2">Номер</span><span class="sv2" id="newId">#IL-00000</span></div>
-          <div class="sr2"><span class="sk2">Адрес</span><span class="sv2" id="newAdr">—</span></div>
-          <div class="sr2"><span class="sk2">Активно до</span><span class="sv2" id="newExp">—</span></div>
-          <div class="sr2"><span class="sk2">Кредитов осталось</span><span class="sv2" id="crLeft">6</span></div>
+          <div class="sr2"><span class="sk2" data-i18n="pub.listing_id">Номер</span><span class="sv2" id="newId">#IL-00000</span></div>
+          <div class="sr2"><span class="sk2" data-i18n="pub.address">Адрес</span><span class="sv2" id="newAdr">—</span></div>
+          <div class="sr2"><span class="sk2" data-i18n="pub.expires">Активно до</span><span class="sv2" id="newExp">—</span></div>
+          <div class="sr2"><span class="sk2" data-i18n="pub.balance_left">Кредитов осталось</span><span class="sv2" id="crLeft">6</span></div>
         </div>
-        <button class="bsub" onclick="closePub()">Закрыть и посмотреть на карте</button>
+        <button class="bsub" onclick="closePub()" data-i18n="pub.close_view">Закрыть и посмотреть на карте</button>
       </div>
     </div>
   </div>
@@ -1652,49 +1652,49 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
   <div class="cabp" id="cab-bill">
     <div class="crb">
       <div>
-        <div style="font-size:12px;color:var(--ink3);margin-bottom:4px">Баланс</div>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:4px" data-i18n="cab.balance">Баланс</div>
         <div class="crv" id="cabCr">₪0</div>
         <div style="font-size:11px;color:var(--ink3);margin-top:4px">₪100 = 1 объявление на 30 дней</div>
       </div>
-      <button style="padding:10px 20px;border-radius:10px;border:none;background:var(--c);color:#fff;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer" onclick="openTopup()">Пополнить</button>
+      <button style="padding:10px 20px;border-radius:10px;border:none;background:var(--c);color:#fff;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer" onclick="openTopup()" data-i18n="cab.topup">Пополнить</button>
     </div>
     <div style="margin-top:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">История транзакций</div>
-      <div id="txHistory" style="font-size:12px;color:var(--ink3);text-align:center;padding:20px">Пока нет транзакций</div>
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px" data-i18n="cab.tx_title">История транзакций</div>
+      <div id="txHistory" style="font-size:12px;color:var(--ink3);text-align:center;padding:20px" data-i18n="cab.no_tx">Пока нет транзакций</div>
     </div>
   </div>
   <div class="cabp" id="cab-prof">
     <div class="fgrp-row" style="margin-bottom:16px">
-      <div class="fgrp"><input class="finput" type="text" id="profName" value="" placeholder=" "><label class="flabel has-val">Имя</label></div>
-      <div class="fgrp"><input class="finput" type="tel" value="+972-54-123-4567" placeholder=" "><label class="flabel has-val">Телефон</label></div>
+      <div class="fgrp"><input class="finput" type="text" id="profName" value="" placeholder=" "><label class="flabel has-val" data-i18n="cab.name">Имя</label></div>
+      <div class="fgrp"><input class="finput" type="tel" value="+972-54-123-4567" placeholder=" "><label class="flabel has-val" data-i18n="cab.phone">Телефон</label></div>
     </div>
-    <div style="margin-top:4px"><button class="bsub" onclick="showToast('Сохранено ✅')">Сохранить</button></div>
-    <div style="text-align:center;margin-top:12px"><button onclick="logout()" style="font-family:var(--font);font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline">Выйти</button></div>
+    <div style="margin-top:4px"><button class="bsub" onclick="showToast('Сохранено ✅')" data-i18n="cab.save">Сохранить</button></div>
+    <div style="text-align:center;margin-top:12px"><button onclick="logout()" style="font-family:var(--font);font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;text-decoration:underline" data-i18n="cab.logout">Выйти</button></div>
   </div>
 
 <div class="cabp" id="cab-ref">
   <div style="padding:20px;overflow-y:auto;max-height:60vh">
-    <h3 style="margin-bottom:16px">🔗 Реферальная программа</h3>
+    <h3 style="margin-bottom:16px" data-i18n="ref.title">🔗 Реферальная программа</h3>
     <div style="background:linear-gradient(135deg,#1C6EF2,#0EA5E9);color:#fff;border-radius:16px;padding:20px;margin-bottom:16px">
-      <div style="font-size:13px;opacity:.8;margin-bottom:6px">Твоя реферальная ссылка</div>
+      <div style="font-size:13px;opacity:.8;margin-bottom:6px" data-i18n="ref.link_label">Твоя реферальная ссылка</div>
       <div style="font-size:14px;font-weight:700;word-break:break-all" id="refLink">Загрузка...</div>
-      <button onclick="copyRefLink()" style="margin-top:10px;background:rgba(255,255,255,.2);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600">📋 Скопировать</button>
+      <button onclick="copyRefLink()" style="margin-top:10px;background:rgba(255,255,255,.2);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600" data-i18n="ref.copy">📋 Скопировать</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       <div style="background:#F0F9FF;border-radius:12px;padding:16px;text-align:center">
         <div style="font-size:28px;font-weight:900;color:#1C6EF2" id="refTotal">0</div>
-        <div style="font-size:12px;color:#666">Приглашено</div>
+        <div style="font-size:12px;color:#666" data-i18n="ref.invited">Приглашено</div>
       </div>
       <div style="background:#F0FDF4;border-radius:12px;padding:16px;text-align:center">
         <div style="font-size:28px;font-weight:900;color:#16A34A" id="refCredits">0</div>
-        <div style="font-size:12px;color:#666">Кредитов заработано</div>
+        <div style="font-size:12px;color:#666" data-i18n="ref.earned">Кредитов заработано</div>
       </div>
     </div>
     <div style="background:#FFF9E6;border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px">
-      <b>Как это работает:</b><br>
-      🎁 Ты приглашаешь друга → он регистрируется по твоей ссылке<br>
-      ✅ Ты получаешь <b>+50 кредитов</b><br>
-      ✅ Друг получает <b>+20 кредитов</b>
+      <b data-i18n="ref.how">Как это работает:</b><br>
+      <span data-i18n="ref.step1">🎁 Ты приглашаешь друга → он регистрируется по твоей ссылке</span><br>
+      <span data-i18n="ref.step2">✅ Ты получаешь +50 кредитов</span><br>
+      <span data-i18n="ref.step3">✅ Друг получает +20 кредитов</span>
     </div>
     <div id="refList"></div>
   </div>
@@ -1768,14 +1768,14 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
     </div>
     <div class="topup-inputs">
       <div class="topup-input-wrap">
-        <input class="topup-input" type="text" id="topupCard" placeholder="Номер карты" maxlength="19"
+        <input class="topup-input" type="text" id="topupCard" placeholder="Номер карты" data-i18n-placeholder="topup.card_num" maxlength="19"
           oninput="var v=this.value.replace(/\D/g,'').slice(0,16);this.value=v.replace(/(.{4})/g,'$1 ').trim()" style="direction:ltr;text-align:left">
         <span class="topup-input-icon">💳</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input class="topup-input" type="text" id="topupExp" placeholder="ММ / ГГ" maxlength="5"
+        <input class="topup-input" type="text" id="topupExp" placeholder="ММ / ГГ" data-i18n-placeholder="topup.card_exp" maxlength="5"
           oninput="var vv=this.value.replace(/\D/g,'');if(vv.length>2)vv=vv.slice(0,2)+'/'+vv.slice(2,4);this.value=vv" style="direction:ltr;text-align:left">
-        <input class="topup-input" type="text" id="topupCvv" placeholder="CVV" maxlength="4" style="direction:ltr;text-align:left">
+        <input class="topup-input" type="text" id="topupCvv" placeholder="CVV" data-i18n-placeholder="topup.card_cvv" maxlength="4" style="direction:ltr;text-align:left">
       </div>
     </div>
   </div>
@@ -2677,6 +2677,12 @@ const I18N={
     'cab.topup_entry':'Пополнение',
     'cab.save':'Сохранить','cab.logout':'Выйти',
     'cab.phone':'Телефон','cab.name':'Имя',
+    'ref.title':'🔗 Реферальная программа','ref.link_label':'Твоя реферальная ссылка','ref.copy':'📋 Скопировать',
+    'ref.invited':'Приглашено','ref.earned':'Кредитов заработано','ref.how':'Как это работает:',
+    'ref.step1':'🎁 Ты приглашаешь друга → он регистрируется по твоей ссылке',
+    'ref.step2':'✅ Ты получаешь +50 кредитов','ref.step3':'✅ Друг получает +20 кредитов',
+    'ref.invited_users':'Приглашённые пользователи:',
+    'pub.close_view':'Закрыть и посмотреть на карте',
     'topup.title':'Пополнение баланса','topup.current':'Текущий баланс:',
     'topup.card_num':'Номер карты','topup.card_exp':'ММ/ГГ','topup.card_cvv':'CVV',
     'topup.summary':'К оплате','topup.btn':'Пополнить на',
@@ -2784,6 +2790,12 @@ const I18N={
     'cab.topup_entry':'Top-up',
     'cab.save':'Save','cab.logout':'Sign Out',
     'cab.phone':'Phone','cab.name':'Name',
+    'ref.title':'🔗 Referral program','ref.link_label':'Your referral link','ref.copy':'📋 Copy',
+    'ref.invited':'Invited','ref.earned':'Credits earned','ref.how':'How it works:',
+    'ref.step1':'🎁 Invite a friend → they sign up with your link',
+    'ref.step2':'✅ You get +50 credits','ref.step3':'✅ Your friend gets +20 credits',
+    'ref.invited_users':'Invited users:',
+    'pub.close_view':'Close and view on map',
     'topup.title':'Top Up Balance','topup.current':'Current balance:',
     'topup.card_num':'Card number','topup.card_exp':'MM/YY','topup.card_cvv':'CVV',
     'topup.summary':'Total','topup.btn':'Pay',
@@ -2889,6 +2901,12 @@ const I18N={
     'cab.topup_entry':'הפקדה',
     'cab.save':'שמור','cab.logout':'יציאה',
     'cab.phone':'טלפון','cab.name':'שם',
+    'ref.title':'🔗 תוכנית הפניות','ref.link_label':'קישור ההפניה שלך','ref.copy':'📋 העתק',
+    'ref.invited':'הוזמנו','ref.earned':'קרדיטים שנצברו','ref.how':'איך זה עובד:',
+    'ref.step1':'🎁 אתה מזמין חבר ← הוא נרשם עם הקישור שלך',
+    'ref.step2':'✅ אתה מקבל +50 קרדיטים','ref.step3':'✅ החבר מקבל +20 קרדיטים',
+    'ref.invited_users':'משתמשים מוזמנים:',
+    'pub.close_view':'סגור וצפה במפה',
     'topup.title':'טעינת יתרה','topup.current':'יתרה נוכחית:',
     'topup.card_num':'מספר כרטיס','topup.card_exp':'MM/YY','topup.card_cvv':'CVV',
     'topup.summary':'סה"כ לתשלום','topup.btn':'שלם',
