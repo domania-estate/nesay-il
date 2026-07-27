@@ -2090,27 +2090,19 @@ async function addrSearch(q){
   const sg=document.getElementById('addrSugg');
   if(!selectedCityData){sg.classList.add('hid');return}
   if(!q||q.length<2){sg.classList.add('hid');return}
-  sg.innerHTML='<div class="ald">🔍 Поиск...</div>';
+  sg.innerHTML='<div class="ald">\ud83d\udd0d Поиск...</div>';
   sg.classList.remove('hid');
-
   addrTimer=setTimeout(async()=>{
     try{
       const city=selectedCityData.name;
       const lat=selectedCityData.lat;
       const lng=selectedCityData.lng;
-
-      // Photon — открытый геокодер на базе OpenStreetMap, лучше работает с ивритом
-      const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(q+' '+city)}&lat=${lat}&lon=${lng}&limit=8&lang=en&bbox=${lng-.15},${lat-.15},${lng+.15},${lat+.15}`;
-      const res=await fetch(url);
+      const cur=/[\u0590-\u05FF]/.test(q)?'he':/[\u0400-\u04FF]/.test(q)?'ru':'en';
+      const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q+' '+city)}&format=jsonv2&accept-language=${cur}&countrycodes=il&limit=8&addressdetails=1`;
+      const res=await fetch(url,{headers:{'Accept-Language':cur}});
       const data=await res.json();
-      const features=(data.features||[]).filter(f=>{
-        const p=f.properties||{};
-        // Только Израиль
-        return p.country_code==='IL'||p.country==='Israel';
-      }).slice(0,7);
-
+      const features=(data||[]).filter(f=>f.address&&(f.address.road||f.class==='highway'||f.type==='house')).slice(0,7);
       if(!features.length){
-        // Fallback — показываем подсказку ввести вручную
         sg.innerHTML=`<div class="ald" style="color:var(--ink3);padding:10px 14px">
           Улица не найдена автоматически.<br>
           <span style="font-size:11px">Введите адрес вручную и нажмите «Далее»</span>
@@ -2122,20 +2114,15 @@ async function addrSearch(q){
         </div>`;
         return;
       }
-
       sg.innerHTML=features.map(f=>{
-        const p=f.properties||{};
-        const coords=f.geometry?.coordinates||[lng,lat];
-        const street=p.street||p.name||q;
-        const houseNum=p.housenumber?` ${p.housenumber}`:'';
-        const district=p.district||p.suburb||p.city||city;
-        let ico='🛣️';
-        if(p.housenumber||p.type==='house')ico='🏠';
-        else if(p.type==='amenity')ico='🏬';
-        else if(p.type==='park'||p.type==='nature')ico='🌳';
+        const a=f.address||{};
+        const street=a.road||f.name||q;
+        const houseNum=a.house_number?` ${a.house_number}`:'';
+        const district=a.suburb||a.city_district||a.city||city;
+        let ico=a.house_number?'\ud83c\udfe0':'\ud83d\udee3\ufe0f';
         const nm=JSON.stringify(street).replace(/"/g,'&quot;');
         const hn=JSON.stringify((houseNum).trim()).replace(/"/g,'&quot;');
-        return `<div class="asi" onclick="selAddr(${nm},${hn},${coords[1]},${coords[0]})" tabindex="0">
+        return `<div class="asi" onclick="selAddr(${nm},${hn},${f.lat},${f.lon})" tabindex="0">
           <span class="asi-ico">${ico}</span>
           <div>
             <div class="asi-main">${street}${houseNum?'<b style="color:var(--c)">'+houseNum+'</b>':''}</div>
