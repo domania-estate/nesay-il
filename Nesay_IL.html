@@ -1552,7 +1552,8 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
         </div>
         <div class="fgrp-row" style="margin-bottom:16px">
           <div class="fgrp">
-            <input class="finput" type="text" placeholder=" " maxlength="5">
+            <input class="finput" type="text" id="ccExp" placeholder=" " maxlength="5"
+              oninput="var vv=this.value.replace(/\D/g,'');if(vv.length>2)vv=vv.slice(0,2)+'/'+vv.slice(2,4);this.value=vv">
             <label class="flabel" data-i18n="pub.card_expiry">Срок действия</label>
           </div>
           <div class="fgrp">
