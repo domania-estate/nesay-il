@@ -1482,7 +1482,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
         </div>
         <div class="fgrp">
           <select class="fselect" id="pubReno">
-            <option value="">— Ремонт —</option><option data-i18n="pub.reno.new">Новый</option><option data-i18n="pub.reno.fresh">Свежий ремонт</option><option data-i18n="pub.reno.cosm">Косметический</option><option data-i18n="pub.reno.needs">Требует ремонта</option>
+            <option value="" data-i18n="pub.reno.none">— Ремонт —</option><option data-i18n="pub.reno.new">Новый</option><option data-i18n="pub.reno.fresh">Свежий ремонт</option><option data-i18n="pub.reno.cosm">Косметический</option><option data-i18n="pub.reno.needs">Требует ремонта</option>
           </select>
           <label class="flabel" data-i18n="pub.reno">Ремонт</label>
           <span class="fselect-arrow">▾</span>
@@ -1497,7 +1497,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <button onclick="genAI()" style="margin-bottom:16px;font-family:var(--font);font-size:12px;font-weight:700;color:var(--c);background:var(--cl);border:1px solid rgba(28,110,242,.2);padding:7px 14px;border-radius:8px;cursor:pointer" data-i18n="pub.ai">✨ AI описание</button>
 
       <div style="display:flex;justify-content:flex-end">
-        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep(2)" data-i18n="pub.next">Далее →</button>
+        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep1Next()" data-i18n="pub.next">Далее →</button>
       </div>
     </div>
 
@@ -1518,58 +1518,58 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <div id="dzCnt" style="font-size:12px;color:var(--ink3);margin-top:8px;text-align:center"></div>
       <div style="display:flex;justify-content:space-between;margin-top:18px">
         <button class="bbk" onclick="goStep(1)">← Назад</button>
-        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep(3)">Далее: Тариф →</button>
+        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep(3)" data-i18n="pub.next_tariff">Далее: Тариф →</button>
       </div>
     </div>
 
     <!-- STEP 3 -->
     <div id="pst3" style="display:none">
       <div style="background:var(--greenbg);border-radius:14px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(26,125,78,.15)">
-        <div><div style="font-size:13px;color:var(--green);font-weight:700">💎 Баланс: <b id="crBal">₪0</b></div><div style="font-size:12px;color:var(--ink2);margin-top:2px" data-i18n="cab.balance_hint">₪100 = 1 объявление на 30 дней</div></div>
-        <button style="padding:8px 16px;border-radius:10px;border:none;background:var(--green);color:#fff;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer" onclick="showToast('...')">Купить ещё</button>
+        <div><div style="font-size:13px;color:var(--green);font-weight:700">💎 <span data-i18n="cab.balance">Баланс</span>: <b id="crBal">₪0</b></div><div style="font-size:12px;color:var(--ink2);margin-top:2px" data-i18n="cab.balance_hint">₪100 = 1 объявление на 30 дней</div></div>
+        <button style="padding:8px 16px;border-radius:10px;border:none;background:var(--green);color:#fff;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer" onclick="showToast('...')" data-i18n="pub.buy_more">Купить ещё</button>
       </div>
       <div class="tg">
-        <div class="tc" onclick="selTier(this,100,1)"><div class="tn">Старт</div><div class="tp">₪100</div><div class="td2">1 объявление</div><div class="tsv">₪100/шт</div></div>
-        <div class="tc on" onclick="selTier(this,950,10)"><div class="tpop">Популярный</div><div class="tn">Базовый</div><div class="tp">₪950</div><div class="td2">10 объявлений</div><div class="tsv">₪95/шт · −5%</div></div>
-        <div class="tc" onclick="selTier(this,1700,20)"><div class="tn">Профи</div><div class="tp">₪1,700</div><div class="td2">20 объявлений</div><div class="tsv">₪85/шт · −15%</div></div>
-        <div class="tc" onclick="selTier(this,4000,50)"><div class="tn">Агентство</div><div class="tp">₪4,000</div><div class="td2">50 объявлений</div><div class="tsv">₪80/шт · −20%</div></div>
+        <div class="tc" onclick="selTier(this,100,1)"><div class="tn" data-i18n="topup.plan1">Старт</div><div class="tp">₪100</div><div class="td2" data-i18n="pub.1_listing">1 объявление</div><div class="tsv">₪100/шт</div></div>
+        <div class="tc on" onclick="selTier(this,950,10)"><div class="tpop" data-i18n="topup.popular">Популярный</div><div class="tn" data-i18n="topup.plan2">Базовый</div><div class="tp">₪950</div><div class="td2">10 <span data-i18n="topup.listings">объявлений</span></div><div class="tsv">₪95/шт · −5%</div></div>
+        <div class="tc" onclick="selTier(this,1700,20)"><div class="tn" data-i18n="topup.plan3">Профи</div><div class="tp">₪1,700</div><div class="td2">20 <span data-i18n="topup.listings">объявлений</span></div><div class="tsv">₪85/шт · −15%</div></div>
+        <div class="tc" onclick="selTier(this,4000,50)"><div class="tn" data-i18n="topup.plan4">Агентство</div><div class="tp">₪4,000</div><div class="td2">50 <span data-i18n="topup.listings">объявлений</span></div><div class="tsv">₪80/шт · −20%</div></div>
       </div>
-      <button class="bsub" style="background:var(--green);margin-bottom:12px;box-shadow:0 4px 14px rgba(26,125,78,.3)" onclick="useCredit()">✅ Использовать кредит из баланса</button>
+      <button class="bsub" style="background:var(--green);margin-bottom:12px;box-shadow:0 4px 14px rgba(26,125,78,.3)" onclick="useCredit()" data-i18n="pub.use_credit">✅ Использовать кредит из баланса</button>
       <div style="display:flex;justify-content:space-between">
         <button class="bbk" onclick="goStep(2)">← Назад</button>
-        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep(4)">Далее: Оплата →</button>
+        <button class="bsub" style="width:auto;padding:13px 28px" onclick="goStep(4)" data-i18n="pub.next_payment">Далее: Оплата →</button>
       </div>
     </div>
 
     <!-- STEP 4 -->
     <div id="pst4" style="display:none">
       <div class="pyb">
-        <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">💳 Банковская карта</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="pub.bank_card">💳 Банковская карта</div>
         <div style="display:flex;gap:6px;margin-bottom:16px"><div class="ci">VISA</div><div class="ci">MC</div><div class="ci" style="font-size:9px">AMEX</div><div class="ci" style="font-size:9px">ISRACARD</div></div>
         <div class="fgrp">
           <input class="finput" type="text" id="ccNum" placeholder=" " maxlength="19" oninput="var v=this.value.replace(/\D/g,'').slice(0,16);this.value=v.replace(/(.{4})/g,'$1 ').trim()">
-          <label class="flabel">Номер карты</label>
+          <label class="flabel" data-i18n="topup.card_num">Номер карты</label>
         </div>
         <div class="fgrp-row" style="margin-bottom:16px">
           <div class="fgrp">
             <input class="finput" type="text" placeholder=" " maxlength="5">
-            <label class="flabel">Срок действия</label>
+            <label class="flabel" data-i18n="pub.card_expiry">Срок действия</label>
           </div>
           <div class="fgrp">
             <input class="finput" type="text" placeholder=" " maxlength="4">
-            <label class="flabel">CVV</label>
+            <label class="flabel" data-i18n="topup.card_cvv">CVV</label>
           </div>
         </div>
         <div class="fgrp">
           <input class="finput" type="text" placeholder=" ">
-          <label class="flabel">Имя на карте</label>
+          <label class="flabel" data-i18n="pub.card_name">Имя на карте</label>
         </div>
       </div>
       <div class="ttlb">
-        <div><div style="font-size:12px;color:rgba(255,255,255,.6)">К оплате</div><div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px" id="pubPln">Базовый · 10 объявлений</div></div>
+        <div><div style="font-size:12px;color:rgba(255,255,255,.6)" data-i18n="pub.to_pay">К оплате</div><div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px" id="pubPln">Базовый · 10 объявлений</div></div>
         <div style="font-size:26px;font-weight:900" id="totPrc">₪950</div>
       </div>
-      <div style="font-size:12px;color:var(--ink3);margin-bottom:16px;text-align:center">🔒 Защищённая оплата через Tranzila · данные карты не хранятся</div>
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:16px;text-align:center"><span data-i18n="topup.secure">🔒 Защищённая оплата через Tranzila</span> · <span data-i18n="topup.no_store">Данные не хранятся</span></div>
       <button class="bsub" id="payBtn" onclick="submitPay()">Оплатить ₪950</button>
       <div style="margin-top:10px"><button class="bbk" onclick="goStep(3)">← Назад</button></div>
     </div>
@@ -2444,6 +2444,15 @@ function setDealType(type){
   document.getElementById('dtRent').className='dt-btn'+(type==='rent'?' on-r':'');
   document.getElementById('dtSale').className='dt-btn'+(type==='sale'?' on-s':'');
 }
+function goStep1Next(){
+  const price=parseFloat(document.getElementById('pubPrice')?.value)||0;
+  const street=document.getElementById('addrInp')?.value||'';
+  const cityName=document.getElementById('addrCityName')?.value||'';
+  if(!price){showToast(t('err.price'));return}
+  if(!cityName){showToast(t('err.city'));return}
+  if(!street){showToast(t('err.street'));return}
+  goStep(2);
+}
 function goStep(n){
   pubStep=n;
   ['pst1','pst2','pst3','pst4','pstSuc'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none'});
@@ -2720,6 +2729,7 @@ const I18N={
     'topup.pay_method':'Способ оплаты',
     'pub.1_listing':'1 объявление','pub.per_unit':'₪100/шт',
     'topup.listings':'объявлений','topup.secure':'🔒 Защищённая оплата через Tranzila','topup.no_store':'Данные не хранятся',
+    'pub.next_payment':'Далее: Оплата →','pub.card_expiry':'Срок действия','pub.card_name':'Имя на карте','pub.bank_card':'💳 Банковская карта','pub.reno.none':'— Ремонт —','pub.next_tariff':'Далее: Тариф →','pub.to_pay':'К оплате',
     'cab.balance_hint':'₪100 = 1 объявление на 30 дней',
   },
   en:{
@@ -2833,6 +2843,7 @@ const I18N={
     'topup.pay_method':'Payment method',
     'pub.1_listing':'1 listing','pub.per_unit':'₪100/each',
     'topup.listings':'listings','topup.secure':'🔒 Secure payment via Tranzila','topup.no_store':'Data is not stored',
+    'pub.next_payment':'Next: Payment →','pub.card_expiry':'Expiry date','pub.card_name':'Name on card','pub.bank_card':'💳 Bank card','pub.reno.none':'— Condition —','pub.next_tariff':'Next: Plan →','pub.to_pay':'Total',
     'cab.balance_hint':'₪100 = 1 listing for 30 days',
   },
   he:{
@@ -2946,6 +2957,7 @@ const I18N={
     'topup.pay_method':'אמצעי תשלום',
     'pub.1_listing':'מודעה אחת','pub.per_unit':'₪100/יחידה',
     'topup.listings':'מודעות','topup.secure':'🔒 תשלום מאובטח דרך Tranzila','topup.no_store':'הנתונים אינם נשמרים',
+    'pub.next_payment':'הבא: תשלום →','pub.card_expiry':'תוקף','pub.card_name':'שם על הכרטיס','pub.bank_card':'💳 כרטיס אשראי','pub.reno.none':'— מצב —','pub.next_tariff':'הבא: תעריף →','pub.to_pay':'לתשלום',
     'cab.balance_hint':'₪100 = מודעה אחת ל-30 יום',
   }
 };
