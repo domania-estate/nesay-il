@@ -1221,7 +1221,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
     </div>
     <div id="navUser" style="display:none;align-items:center;gap:8px">
       <span class="cp" id="navCr" onclick="refreshCredits()" style="cursor:pointer" title="Нажми чтобы обновить">₪0 баланс</span>
-      <button class="bn" style="background:linear-gradient(90deg,#F59E0B,#EF4444);color:#fff;font-size:12px;padding:7px 12px;box-shadow:0 2px 8px rgba(245,158,11,.35)" onclick="openCab();setTimeout(()=>swCab('list'),150)" title="Продвинуть объявление">⚡ Продвижение</button>
+      <button class="bn" style="background:linear-gradient(90deg,#F59E0B,#EF4444);color:#fff;font-size:12px;padding:7px 12px;box-shadow:0 2px 8px rgba(245,158,11,.35)" onclick="openCab();setTimeout(()=>swCab('list'),150)" title="Продвинуть объявление" data-i18n="nav.promote">⚡ Продвижение</button>
       <div class="ub" onclick="openCab()">
         <div class="ua" id="navAv">АК</div>
         <div>
@@ -1229,7 +1229,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
           <div style="font-size:10px;color:var(--ink3)" id="navRl">Агент</div>
         </div>
       </div>
-      <button class="bn bm" onclick="openPub()">+ Разместить</button>
+      <button class="bn bm" onclick="openPub()" data-i18n="nav.publish">+ Разместить</button>
     </div>
   </div>
 </nav>
@@ -3144,6 +3144,11 @@ function setLang(l){
   const mcntSpan=document.querySelector('.mcnt span');if(mcntSpan)mcntSpan.textContent=t('map.objects');
   const chi=document.getElementById('chatInp');if(chi)chi.placeholder=t('chat.placeholder');
   applyI18nStatic();
+  const navRlEl=document.getElementById('navRl');
+  if(navRlEl&&navRlEl.dataset.role){
+    const r=navRlEl.dataset.role;
+    navRlEl.textContent=r==='owner'?t('role.owner'):r==='agent'?t('role.agent'):t('role.buyer');
+  }
   applyFilter();
   renderWkChart();
   if(loggedIn){document.getElementById('navCr').textContent='\u20aa'+userCredits+' '+t('nav.balance');}
