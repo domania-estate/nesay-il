@@ -185,7 +185,7 @@ router.post('/login', [
 
   try {
     const result = await db.query(
-      'SELECT id, email, name, role, credits, verified, password_hash FROM users WHERE email = $1',
+      'SELECT id, email, name, role, credits, verified, blocked, password_hash FROM users WHERE email = $1',
       [email]
     );
 
@@ -197,6 +197,7 @@ router.post('/login', [
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Неверный email или пароль' });
 
+    if (user.blocked) return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' });
     delete user.password_hash;
     console.log('LOGIN: user credits from DB:', user.credits, 'email:', user.email);
     res.json({ token: makeToken(user), user });

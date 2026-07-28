@@ -9,7 +9,7 @@ router.get('/users', requireModerator, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT
-        u.id, u.name, u.surname, u.email, u.phone, u.role, u.verified, u.is_moderator,
+        u.id, u.name, u.surname, u.email, u.phone, u.role, u.verified, u.is_moderator, u.blocked,
         u.credits, u.created_at,
         (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id AND l.status != 'removed') AS listings_count,
         (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id AND l.status = 'pending_review') AS pending_count,
@@ -54,6 +54,43 @@ router.get('/users/:id/listings', requireModerator, async (req, res) => {
       ORDER BY l.created_at DESC
     `, [req.params.id]);
     res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Заблокировать / разблокировать пользователя
+router.post('/users/:id/block', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET blocked = true WHERE id = $1 RETURNING id, blocked', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, blocked: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+router.post('/users/:id/unblock', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET blocked = false WHERE id = $1 RETURNING id, blocked', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, blocked: false });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Изменить баланс пользователя (плюс или минус)
+router.post('/users/:id/balance', requireModerator, async (req, res) => {
+  const { amount } = req.body;
+  const delta = parseInt(amount);
+  if (!delta) return res.status(400).json({ error: 'Укажите сумму' });
+  try {
+    const result = await db.query(
+      'UPDATE users SET credits = GREATEST(0, credits + $1) WHERE id = $2 RETURNING id, credits',
+      [delta, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, credits: result.rows[0].credits });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
