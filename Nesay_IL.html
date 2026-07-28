@@ -200,6 +200,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .dth.r{background:var(--rentbg);color:var(--rent);border-bottom:2px solid var(--rent)}
 .dth.s{background:var(--salebg);color:var(--sale);border-bottom:2px solid var(--sale)}
 .dtm{width:100%;height:200px;position:relative;flex-shrink:0;overflow:hidden}
+.dtm-slides{position:absolute;inset:0;display:flex;transition:transform .3s ease}
+.dtm-slide{min-width:100%;height:100%;background-size:cover;background-position:center;flex-shrink:0;cursor:zoom-in}
+.dtm .slide-btn{width:32px;height:32px;font-size:14px;display:flex}
+.dtm .slide-dots{bottom:10px}
+.dtm .slide-dot{width:6px;height:6px}
+.lbx{display:none;position:fixed;inset:0;background:rgba(8,8,14,.96);z-index:99999;align-items:center;justify-content:center}
+.lbx.open{display:flex}
+.lbx-img{max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px}
+.lbx-close{position:absolute;top:20px;right:20px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lbx-close:hover{background:rgba(255,255,255,.22)}
+.lbx-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lbx-nav:hover{background:rgba(255,255,255,.22)}
+.lbx-prev{left:20px}
+.lbx-next{right:20px}
+.lbx-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:13px;font-weight:600}
 .dtmbg{position:absolute;inset:0;background-size:cover;background-position:center}
 .dtme{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;text-shadow:0 4px 24px rgba(0,0,0,.5)}
 .dcl{position:absolute;top:10px;left:10px;z-index:5;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);border:1.5px solid rgba(0,0,0,.1);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
@@ -1315,9 +1330,13 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 <div class="dp" id="detailPop">
   <div class="dc">
     <div class="dth r" id="dTypHdr" data-i18n="map.rent">🔵 Аренда</div>
-    <div class="dtm">
+    <div class="dtm" id="dtmWrap">
       <div class="dtmbg" id="dThBg"></div>
       <div class="dtme" id="dThEm">🏢</div>
+      <div class="dtm-slides" id="dtmSlides" style="display:none"></div>
+      <button class="slide-btn slide-prev" id="dtmPrev" onclick="event.stopPropagation();dtmNav(-1)" style="display:none">‹</button>
+      <button class="slide-btn slide-next" id="dtmNext" onclick="event.stopPropagation();dtmNav(1)" style="display:none">›</button>
+      <div class="slide-dots" id="dtmDots"></div>
       <button class="dcl" onclick="closeDetail()">✕</button>
     </div>
     <div class="dby">
@@ -1866,6 +1885,13 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 </div>
 
 <div class="tst" id="toast" dir="auto"></div>
+<div class="lbx" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <button class="lbx-close" onclick="closeLightbox()">✕</button>
+  <button class="lbx-nav lbx-prev" onclick="lightboxNav(-1)">‹</button>
+  <img class="lbx-img" id="lightboxImg" src="">
+  <button class="lbx-nav lbx-next" onclick="lightboxNav(1)">›</button>
+  <div class="lbx-counter" id="lightboxCounter"></div>
+</div>
 <button class="cf" onclick="openChat()">💬<span class="cn">3</span></button>
 <a href="#" class="wab" onclick="showToast('WhatsApp...'); return false;">💬</a>
 <script>
@@ -2451,9 +2477,22 @@ function openDetail(idx){
   const pStr='₪'+d.priceNum.toLocaleString()+(isR?('/'+t('mo')):'');
   document.getElementById('dTypHdr').className=`dth ${isR?'r':'s'}`;
   document.getElementById('dTypHdr').textContent=isR?t('deal.rent'):t('deal.sale');
+  const photos=(d.allPhotos&&d.allPhotos.length)?d.allPhotos:(d.userPhoto?[d.userPhoto]:[]);
   const bg=document.getElementById('dThBg'),em=document.getElementById('dThEm');
-  if(d.userPhoto){bg.style.backgroundImage=`url('${d.userPhoto}')`;bg.style.backgroundSize='cover';em.style.display='none'}
-  else{bg.style.background=d.thumb;bg.style.backgroundImage='';em.style.display='flex';em.textContent=d.icon}
+  const slidesWrap=document.getElementById('dtmSlides'),prevBtn=document.getElementById('dtmPrev'),nextBtn=document.getElementById('dtmNext'),dotsWrap=document.getElementById('dtmDots');
+  if(photos.length){
+    bg.style.backgroundImage='';em.style.display='none';
+    slidesWrap.style.display='flex';
+    slidesWrap.style.transform='translateX(0%)';
+    slidesWrap.innerHTML=photos.map(function(u){return `<div class="dtm-slide" style="background:url('${u}') center/cover" onclick="openLightbox(${idx},0)"></div>`}).join('');
+    window._dtmIdx=0;window._dtmPhotos=photos;window._dtmListingIdx=idx;
+    if(photos.length>1){prevBtn.style.display='flex';nextBtn.style.display='flex';dotsWrap.innerHTML=photos.map(function(_,i){return `<div class="slide-dot${i===0?' on':''}"></div>`}).join('')}
+    else{prevBtn.style.display='none';nextBtn.style.display='none';dotsWrap.innerHTML=''}
+    slidesWrap.querySelectorAll('.dtm-slide').forEach(function(el,i){el.onclick=function(){openLightbox(idx,i)}});
+  }else{
+    slidesWrap.style.display='none';prevBtn.style.display='none';nextBtn.style.display='none';dotsWrap.innerHTML='';
+    bg.style.background=d.thumb;bg.style.backgroundImage='';em.style.display='flex';em.textContent=d.icon;
+  }
   document.getElementById('dPrc').textContent=pStr;
   document.getElementById('dAdr').textContent='📍 '+d.addr[lang];
   document.getElementById('dSpc').innerHTML=`<div class="spi"><div class="sv">${d.rooms}</div><div class="sk">${t('detail.rooms')}</div></div><div class="spi"><div class="sv">${d.sqm}</div><div class="sk">${t('detail.sqm')}</div></div><div class="spi"><div class="sv">${d.floor}</div><div class="sk">${t('detail.floor')}</div></div>`;
@@ -2473,6 +2512,35 @@ function openDetail(idx){
   if(map&&mapLoaded){map.flyTo({center:[d.lng,d.lat],zoom:16,pitch:60,bearing:-20,duration:900,essential:true});setTimeout(()=>showPopup(idx),650)}
 }
 function closeDetail(){activeIdx=-1;document.getElementById('detailPop').classList.remove('open');document.querySelectorAll('.card').forEach(c=>c.classList.remove('active'));markersArr.forEach(mk=>{mk.getElement().style.zIndex='';mk.getElement().classList.remove('hl')});document.getElementById('mapPop').style.display='none'}
+function dtmNav(dir){
+  if(!window._dtmPhotos||window._dtmPhotos.length<2)return;
+  window._dtmIdx=(window._dtmIdx+dir+window._dtmPhotos.length)%window._dtmPhotos.length;
+  const wrap=document.getElementById('dtmSlides');
+  wrap.style.transform='translateX(-'+(window._dtmIdx*100)+'%)';
+  document.querySelectorAll('#dtmDots .slide-dot').forEach(function(dot,i){dot.classList.toggle('on',i===window._dtmIdx)});
+}
+function openLightbox(listingIdx,photoIdx){
+  const d=listings[listingIdx];if(!d)return;
+  const photos=(d.allPhotos&&d.allPhotos.length)?d.allPhotos:(d.userPhoto?[d.userPhoto]:[]);
+  if(!photos.length)return;
+  window._lbxPhotos=photos;window._lbxIdx=photoIdx||0;
+  document.getElementById('lightboxImg').src=photos[window._lbxIdx];
+  document.getElementById('lightboxCounter').textContent=(window._lbxIdx+1)+' / '+photos.length;
+  document.getElementById('lightbox').classList.add('open');
+}
+function lightboxNav(dir){
+  if(!window._lbxPhotos)return;
+  window._lbxIdx=(window._lbxIdx+dir+window._lbxPhotos.length)%window._lbxPhotos.length;
+  document.getElementById('lightboxImg').src=window._lbxPhotos[window._lbxIdx];
+  document.getElementById('lightboxCounter').textContent=(window._lbxIdx+1)+' / '+window._lbxPhotos.length;
+}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('open')}
+document.addEventListener('keydown',function(e){
+  if(!document.getElementById('lightbox').classList.contains('open'))return;
+  if(e.key==='Escape')closeLightbox();
+  if(e.key==='ArrowLeft')lightboxNav(-1);
+  if(e.key==='ArrowRight')lightboxNav(1);
+});
 
 // ═══ PUBLISH ═══
 let pubStep=1;
