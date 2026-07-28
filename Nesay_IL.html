@@ -1634,6 +1634,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <button class="cabt" onclick="swCab('bill')" data-i18n="cab.billing">Подписка</button>
       <button class="cabt" onclick="swCab('prof')" data-i18n="cab.profile">Профиль</button>
 <button class="cabt" onclick="swCab('ref')"><span data-i18n="ref.tab">🔗 Рефералы</span></button>
+      <button class="cabt" id="modTabBtn" style="display:none" onclick="swCab('mod')"><span data-i18n="mod.tab">🛡️ Модерация</span></button>
 
     </div>
   </div>
@@ -1699,6 +1700,12 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <span data-i18n="ref.step3">✅ Друг получает +20 кредитов</span>
     </div>
     <div id="refList"></div>
+  </div>
+</div>
+<div class="cabp" id="cab-mod">
+  <div style="padding:20px;overflow-y:auto;max-height:60vh">
+    <h3 style="margin-bottom:16px" data-i18n="mod.title">Объявления на проверке</h3>
+    <div id="modList"><div style="text-align:center;color:var(--ink3);padding:20px">...</div></div>
   </div>
 </div>
 </div>
@@ -2718,6 +2725,9 @@ const I18N={
     'pub.1_listing':'1 объявление','pub.per_unit':'₪100/шт',
     'topup.listings':'объявлений','topup.secure':'🔒 Защищённая оплата через Tranzila','topup.no_store':'Данные не хранятся',
     'pub.next_payment':'Далее: Оплата →','pub.card_expiry':'Срок действия','pub.card_name':'Имя на карте','pub.bank_card':'💳 Банковская карта','pub.reno.none':'— Ремонт —','pub.next_tariff':'Далее: Тариф →','pub.to_pay':'К оплате',
+    'mod.tab':'🛡️ Модерация','mod.title':'Объявления на проверке','mod.empty':'Нет объявлений на проверке',
+    'mod.approve':'✅ Одобрить','mod.reject':'❌ Отклонить','mod.reason':'Причина','mod.agent':'Агент',
+    'mod.approved_toast':'✅ Объявление одобрено','mod.rejected_toast':'❌ Объявление отклонено',
     'cab.balance_hint':'₪100 = 1 объявление на 30 дней',
   },
   en:{
@@ -2832,6 +2842,9 @@ const I18N={
     'pub.1_listing':'1 listing','pub.per_unit':'₪100/each',
     'topup.listings':'listings','topup.secure':'🔒 Secure payment via Tranzila','topup.no_store':'Data is not stored',
     'pub.next_payment':'Next: Payment →','pub.card_expiry':'Expiry date','pub.card_name':'Name on card','pub.bank_card':'💳 Bank card','pub.reno.none':'— Condition —','pub.next_tariff':'Next: Plan →','pub.to_pay':'Total',
+    'mod.tab':'🛡️ Moderation','mod.title':'Listings under review','mod.empty':'No listings pending review',
+    'mod.approve':'✅ Approve','mod.reject':'❌ Reject','mod.reason':'Reason','mod.agent':'Agent',
+    'mod.approved_toast':'✅ Listing approved','mod.rejected_toast':'❌ Listing rejected',
     'cab.balance_hint':'₪100 = 1 listing for 30 days',
   },
   he:{
@@ -2946,6 +2959,9 @@ const I18N={
     'pub.1_listing':'מודעה אחת','pub.per_unit':'₪100/יחידה',
     'topup.listings':'מודעות','topup.secure':'🔒 תשלום מאובטח דרך Tranzila','topup.no_store':'הנתונים אינם נשמרים',
     'pub.next_payment':'הבא: תשלום →','pub.card_expiry':'תוקף','pub.card_name':'שם על הכרטיס','pub.bank_card':'💳 כרטיס אשראי','pub.reno.none':'— מצב —','pub.next_tariff':'הבא: תעריף →','pub.to_pay':'לתשלום',
+    'mod.tab':'🛡️ ניהול','mod.title':'מודעות לבדיקה','mod.empty':'אין מודעות לבדיקה',
+    'mod.approve':'✅ אשר','mod.reject':'❌ דחה','mod.reason':'סיבה','mod.agent':'סוכן',
+    'mod.approved_toast':'✅ המודעה אושרה','mod.rejected_toast':'❌ המודעה נדחתה',
     'cab.balance_hint':'₪100 = מודעה אחת ל-30 יום',
   }
 };
@@ -3056,6 +3072,8 @@ function finishAuth(user){
   const profName=document.getElementById('profName');if(profName)profName.value=displayName;
   const cabCr=document.getElementById('cabCr');if(cabCr)cabCr.textContent='₪'+userCredits;
   const crBal=document.getElementById('crBal');if(crBal)crBal.textContent='₪'+userCredits;
+  window.isModerator=!!u.is_moderator;
+  const modBtn=document.getElementById('modTabBtn');if(modBtn)modBtn.style.display=window.isModerator?'':'none';
   showToast(t('toast.welcome')+' '+displayName+'!');
 }
 function doOAuth(){selectedRole='agent';setTimeout(()=>finishAuth('agent@nesay.il'),900)}
@@ -3068,6 +3086,56 @@ function closeChat(){document.getElementById('chatOvl').classList.remove('open')
 function sendMsg(){const inp=document.getElementById('chatInp');const txt=inp.value.trim();if(!txt)return;inp.value='';const msgs=document.getElementById('chatMsgs'),typ=document.getElementById('typInd');const d=document.createElement('div');d.className='msg in';d.innerHTML=`<div class="mb">${txt}</div><div class="mm">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>`;msgs.insertBefore(d,typ);msgs.scrollTop=msgs.scrollHeight;typ.style.display='';msgs.scrollTop=msgs.scrollHeight;setTimeout(()=>{typ.style.display='none';const r=['👍','!מעולה','OK!','Отлично!'];const x=document.createElement('div');x.className='msg out';x.innerHTML=`<div class="mb">${r[Math.floor(Math.random()*r.length)]}</div><div class="mm">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} ✓✓</div>`;msgs.insertBefore(x,typ);msgs.scrollTop=msgs.scrollHeight},1400)}
 
 // CABINET
+async function loadModerationQueue(){
+  const token=localStorage.getItem('nesay_token');
+  const list=document.getElementById('modList');
+  if(!list)return;
+  list.innerHTML='<div style="text-align:center;color:var(--ink3);padding:20px">'+t('loading')+'</div>';
+  try{
+    const res=await fetch(`${API}/listings/moderation/pending`,{headers:{Authorization:'Bearer '+token}});
+    if(!res.ok){list.innerHTML='<div style="text-align:center;color:var(--ink3);padding:20px">'+t('err.load')+'</div>';return}
+    const data=await res.json();
+    if(!data.length){list.innerHTML='<div style="text-align:center;color:var(--ink3);padding:20px">'+t('mod.empty')+'</div>';return}
+    list.innerHTML=data.map(function(d){
+      const cn=d.city_name||{};const city=cn.ru||cn.en||'';
+      const addr=(d.street||'')+(d.house_number?' '+d.house_number:'')+(city?', '+city:'');
+      return `<div class="vfb" style="align-items:flex-start;flex-direction:column;gap:8px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;width:100%">
+          <div>
+            <div style="font-weight:800;font-size:14px">${addr||'—'}</div>
+            <div style="font-size:12px;color:var(--ink3);margin-top:2px">₪${parseInt(d.price).toLocaleString()} · ${d.rooms} ${t('card.rooms')}</div>
+            <div style="font-size:12px;color:var(--ink3);margin-top:2px">${t('mod.agent')}: ${d.agent_name||''} (${d.agent_email||''})</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--red);background:#FFF1F1;padding:8px 10px;border-radius:8px;width:100%">
+          <b>${t('mod.reason')}:</b> ${d.moderation_reason||'—'}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="bm2" style="background:var(--green);color:#fff;border:none" onclick="approveListing('${d.id}',this)">${t('mod.approve')}</button>
+          <button class="bm2" style="background:var(--red);color:#fff;border:none" onclick="rejectListing('${d.id}',this)">${t('mod.reject')}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){list.innerHTML='<div style="text-align:center;color:var(--ink3);padding:20px">'+t('server.down')+'</div>'}
+}
+async function approveListing(id,btn){
+  const token=localStorage.getItem('nesay_token');
+  btn.disabled=true;
+  try{
+    const res=await fetch(`${API}/listings/${id}/approve`,{method:'POST',headers:{Authorization:'Bearer '+token}});
+    if(res.ok){showToast(t('mod.approved_toast'));loadModerationQueue()}
+    else{showToast('❌ Error');btn.disabled=false}
+  }catch(e){showToast('❌ Error');btn.disabled=false}
+}
+async function rejectListing(id,btn){
+  const token=localStorage.getItem('nesay_token');
+  btn.disabled=true;
+  try{
+    const res=await fetch(`${API}/listings/${id}/reject`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({reason:'Отклонено модератором'})});
+    if(res.ok){showToast(t('mod.rejected_toast'));loadModerationQueue()}
+    else{showToast('❌ Error');btn.disabled=false}
+  }catch(e){showToast('❌ Error');btn.disabled=false}
+}
 function openCab(){document.getElementById('cabOvl').classList.add('open');renderWkChart();loadMyListings()}
 async function loadMyListings(){
   const token=localStorage.getItem('nesay_token');
@@ -3106,7 +3174,7 @@ async function deleteMyListing(id,btn){
   }catch(e){showToast('❌ Ошибка')}
 }
 function closeCab(){document.getElementById('cabOvl').classList.remove('open')}
-function swCab(tab){document.querySelectorAll('.cabt').forEach((b,i)=>b.classList.toggle('on',['dash','list','bill','prof','ref'][i]===tab));document.querySelectorAll('.cabp').forEach(p=>p.classList.remove('on'));document.getElementById('cab-'+tab).classList.add('on');if(tab==='ref')loadRefStats();}
+function swCab(tab){document.querySelectorAll('.cabt').forEach((b,i)=>b.classList.toggle('on',['dash','list','bill','prof','ref','mod'][i]===tab));document.querySelectorAll('.cabp').forEach(p=>p.classList.remove('on'));document.getElementById('cab-'+tab).classList.add('on');if(tab==='ref')loadRefStats();if(tab==='mod')loadModerationQueue();}
 function renderWkChart(){const data=[12,28,19,35,42,23,30];const days=t('days');const max=Math.max(...data);const ch=document.getElementById('wkChart');if(!ch)return;ch.innerHTML=data.map((v,i)=>`<div class="brc"><div class="bv">${v}</div><div class="br ${i===4?'hi':''}" style="height:${v/max*100}%"></div><div class="bdy">${days[i]}</div></div>`).join('')}
 
 // PROMO
