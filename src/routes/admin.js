@@ -1,0 +1,62 @@
+const express = require('express');
+const db = require('../../config/db');
+const { requireModerator } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Список всех пользователей со статистикой (для CRM модераторов)
+router.get('/users', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        u.id, u.name, u.surname, u.email, u.phone, u.role, u.verified, u.is_moderator,
+        u.credits, u.created_at,
+        (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id AND l.status != 'removed') AS listings_count,
+        (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id AND l.status = 'pending_review') AS pending_count,
+        (SELECT COUNT(*) FROM referrals r WHERE r.referrer_id = u.id) AS referrals_count,
+        COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.user_id = u.id AND p.status = 'completed'), 0) / 100.0 AS total_deposited
+      FROM users u
+      ORDER BY u.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Admin users error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Общая сводная статистика платформы
+router.get('/stats', requireModerator, async (req, res) => {
+  try {
+    const usersCount = await db.query('SELECT COUNT(*) FROM users');
+    const listingsCount = await db.query("SELECT COUNT(*) FROM listings WHERE status != 'removed'");
+    const pendingCount = await db.query("SELECT COUNT(*) FROM listings WHERE status = 'pending_review'");
+    const totalRevenue = await db.query("SELECT COALESCE(SUM(amount),0)/100.0 AS total FROM payments WHERE status = 'completed'");
+    res.json({
+      users: parseInt(usersCount.rows[0].count),
+      listings: parseInt(listingsCount.rows[0].count),
+      pending: parseInt(pendingCount.rows[0].count),
+      revenue: parseFloat(totalRevenue.rows[0].total)
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Объявления конкретного пользователя (просмотр деталей из CRM)
+router.get('/users/:id/listings', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT l.*, c.name AS city_name
+      FROM listings l
+      JOIN cities c ON c.id = l.city_id
+      WHERE l.user_id = $1 AND l.status != 'removed'
+      ORDER BY l.created_at DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+module.exports = router;
