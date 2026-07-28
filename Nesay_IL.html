@@ -3044,7 +3044,9 @@ const API=(function(){
 })();
 
 async function doAuth(){
-  const email=document.getElementById('authEmail')?.value?.trim();
+  let email=document.getElementById('authEmail')?.value?.trim();
+  // Короткий логин без @ (для служебных/модераторских аккаунтов) — дополняем доменом
+  if(email && !email.includes('@')) email = email + '@nesay.il';
   const pass=document.querySelector('#authS1 input[type="password"]')?.value;
   const name=document.getElementById('authName')?.value?.trim();
   if(!email){showToast(t('err.email'));return}
