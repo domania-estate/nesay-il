@@ -101,10 +101,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .cl2{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .cl2::-webkit-scrollbar{width:4px}.cl2::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
 
-.card{background:var(--white);border-radius:var(--r);border:1px solid var(--line);display:flex;cursor:pointer;transition:all .2s;overflow:hidden;position:relative;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.card{background:var(--white);border-radius:var(--r);border:1px solid var(--line);display:flex;flex-direction:column;cursor:pointer;transition:all .2s;overflow:hidden;position:relative;flex-shrink:0;box-shadow:var(--shadow-sm)}
 .card:hover{border-color:rgba(28,110,242,.3);box-shadow:0 4px 20px rgba(28,110,242,.1);transform:translateY(-1px)}
 .card.active{border-color:var(--c);box-shadow:0 0 0 2px rgba(28,110,242,.15)}
-.card-stripe{width:4px;flex-shrink:0}
+.card-stripe{height:3px;width:100%;flex-shrink:0}
 .card-stripe.r{background:var(--rent)}.card-stripe.s{background:var(--sale)}
 
 .card-img{width:120px;min-width:120px;position:relative;overflow:hidden;flex-shrink:0}
@@ -137,7 +137,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .card.promo{border-color:#F59E0B}
 
 /* ════ PHOTO SLIDER ════ */
-.card-img{width:130px;min-width:130px;min-height:130px;align-self:stretch;position:relative;overflow:hidden;flex-shrink:0}
+.card-img{width:100%;height:190px;min-width:0;min-height:0;position:relative;overflow:hidden;flex-shrink:0;cursor:zoom-in}
 .card-slides{position:absolute;inset:0;display:flex;transition:transform .3s ease}
 .card-slide{min-width:100%;height:100%;background-size:cover;background-position:center;flex-shrink:0}
 .card-img-bg{position:absolute;inset:0;background-size:cover;background-position:center;transition:transform .4s}
@@ -207,7 +207,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .dtm .slide-dot{width:6px;height:6px}
 .lbx{display:none;position:fixed;inset:0;background:rgba(8,8,14,.96);z-index:99999;align-items:center;justify-content:center}
 .lbx.open{display:flex}
-.lbx-img{max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px}
+.lbx-img{width:82vw;height:82vh;max-width:1100px;object-fit:contain;border-radius:8px}
 .lbx-close{position:absolute;top:20px;right:20px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .lbx-close:hover{background:rgba(255,255,255,.22)}
 .lbx-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -2406,7 +2406,7 @@ function renderCards(data){
     let inner='';
     if(d.promoted)inner+=`<div class="promo-strip" style="width:100%">⚡ TOP<span style="opacity:.8;font-size:9px;margin-right:auto"> · ${h}ч ${m}м</span></div>`;
     inner+=`<div class="card-stripe ${isR?'r':'s'}"></div>
-    <div class="card-img">
+    <div class="card-img" onclick="event.stopPropagation();openLightbox(${idx},slideIdx[${idx}]||0)">
       ${photoHtml}
       ${photoCount>0?`<div class="card-photo-cnt">📷 ${photoCount}</div>`:''}
       ${d.badge?`<div class="card-badge badge-${d.badge}">${d.badge==='top'?'TOP':'NEW'}</div>`:''}
