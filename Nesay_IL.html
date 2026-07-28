@@ -1703,9 +1703,62 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
   </div>
 </div>
 <div class="cabp" id="cab-mod">
-  <div style="padding:20px;overflow-y:auto;max-height:60vh">
-    <h3 style="margin-bottom:16px" data-i18n="mod.title">Объявления на проверке</h3>
-    <div id="modList"><div style="text-align:center;color:var(--ink3);padding:20px">...</div></div>
+  <div style="padding:20px;overflow-y:auto;max-height:70vh">
+    <!-- Сводная статистика -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      <div style="background:var(--bg);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--ink)" id="modStatUsers">—</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px" data-i18n="mod.stat_users">Пользователей</div>
+      </div>
+      <div style="background:var(--bg);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--ink)" id="modStatListings">—</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px" data-i18n="mod.stat_listings">Объявлений</div>
+      </div>
+      <div style="background:#FFF1F1;border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--red)" id="modStatPending">—</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px" data-i18n="mod.stat_pending">На проверке</div>
+      </div>
+      <div style="background:var(--greenbg);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:var(--green)" id="modStatRevenue">—</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px" data-i18n="mod.stat_revenue">Оборот</div>
+      </div>
+    </div>
+
+    <!-- Переключатель подвкладок -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:0">
+      <button class="cabt on" id="modSubQueueBtn" style="border-bottom:2px solid var(--c)" onclick="switchModSubtab('queue')" data-i18n="mod.subtab_queue">Очередь на проверку</button>
+      <button class="cabt" id="modSubUsersBtn" onclick="switchModSubtab('users')" data-i18n="mod.subtab_users">Все пользователи</button>
+    </div>
+
+    <!-- Очередь на проверку -->
+    <div id="modSubQueue">
+      <div id="modList"><div style="text-align:center;color:var(--ink3);padding:20px">...</div></div>
+    </div>
+
+    <!-- Все пользователи -->
+    <div id="modSubUsers" style="display:none">
+      <div class="search-bar" style="margin-bottom:14px">
+        <span class="si">🔍</span>
+        <input type="text" id="modUserSearch" data-i18n-placeholder="mod.search_placeholder" placeholder="Поиск по имени или email..." oninput="filterModUsers(this.value)">
+      </div>
+      <div style="overflow-x:auto">
+        <table class="mt" style="width:100%;font-size:12px">
+          <thead>
+            <tr>
+              <th data-i18n="mod.col_user">Пользователь</th>
+              <th data-i18n="mod.col_role">Роль</th>
+              <th data-i18n="mod.col_verified">Верифиц.</th>
+              <th data-i18n="mod.col_credits">Баланс</th>
+              <th data-i18n="mod.col_listings">Объявл.</th>
+              <th data-i18n="mod.col_referrals">Рефералы</th>
+              <th data-i18n="mod.col_deposited">Внесено</th>
+              <th data-i18n="mod.col_registered">Регистрация</th>
+            </tr>
+          </thead>
+          <tbody id="modUsersTbl"><tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 </div>
@@ -2728,6 +2781,11 @@ const I18N={
     'mod.tab':'🛡️ Модерация','mod.title':'Объявления на проверке','mod.empty':'Нет объявлений на проверке',
     'mod.approve':'✅ Одобрить','mod.reject':'❌ Отклонить','mod.reason':'Причина','mod.agent':'Агент',
     'mod.approved_toast':'✅ Объявление одобрено','mod.rejected_toast':'❌ Объявление отклонено',
+    'mod.subtab_queue':'Очередь на проверку','mod.subtab_users':'Все пользователи',
+    'mod.stat_users':'Пользователей','mod.stat_listings':'Объявлений','mod.stat_pending':'На проверке','mod.stat_revenue':'Оборот',
+    'mod.col_user':'Пользователь','mod.col_role':'Роль','mod.col_credits':'Баланс','mod.col_listings':'Объявл.',
+    'mod.col_referrals':'Рефералы','mod.col_deposited':'Внесено','mod.col_registered':'Регистрация','mod.col_verified':'Верифиц.',
+    'mod.search_placeholder':'Поиск по имени или email...',
     'cab.balance_hint':'₪100 = 1 объявление на 30 дней',
   },
   en:{
@@ -2845,6 +2903,11 @@ const I18N={
     'mod.tab':'🛡️ Moderation','mod.title':'Listings under review','mod.empty':'No listings pending review',
     'mod.approve':'✅ Approve','mod.reject':'❌ Reject','mod.reason':'Reason','mod.agent':'Agent',
     'mod.approved_toast':'✅ Listing approved','mod.rejected_toast':'❌ Listing rejected',
+    'mod.subtab_queue':'Review queue','mod.subtab_users':'All users',
+    'mod.stat_users':'Users','mod.stat_listings':'Listings','mod.stat_pending':'Pending','mod.stat_revenue':'Revenue',
+    'mod.col_user':'User','mod.col_role':'Role','mod.col_credits':'Balance','mod.col_listings':'Listings',
+    'mod.col_referrals':'Referrals','mod.col_deposited':'Deposited','mod.col_registered':'Registered','mod.col_verified':'Verified',
+    'mod.search_placeholder':'Search by name or email...',
     'cab.balance_hint':'₪100 = 1 listing for 30 days',
   },
   he:{
@@ -2962,6 +3025,11 @@ const I18N={
     'mod.tab':'🛡️ ניהול','mod.title':'מודעות לבדיקה','mod.empty':'אין מודעות לבדיקה',
     'mod.approve':'✅ אשר','mod.reject':'❌ דחה','mod.reason':'סיבה','mod.agent':'סוכן',
     'mod.approved_toast':'✅ המודעה אושרה','mod.rejected_toast':'❌ המודעה נדחתה',
+    'mod.subtab_queue':'תור לבדיקה','mod.subtab_users':'כל המשתמשים',
+    'mod.stat_users':'משתמשים','mod.stat_listings':'מודעות','mod.stat_pending':'ממתינות','mod.stat_revenue':'מחזור',
+    'mod.col_user':'משתמש','mod.col_role':'תפקיד','mod.col_credits':'יתרה','mod.col_listings':'מודעות',
+    'mod.col_referrals':'הפניות','mod.col_deposited':'הופקד','mod.col_registered':'נרשם','mod.col_verified':'מאומת',
+    'mod.search_placeholder':'חפש לפי שם או אימייל...',
     'cab.balance_hint':'₪100 = מודעה אחת ל-30 יום',
   }
 };
@@ -3086,7 +3154,71 @@ function closeChat(){document.getElementById('chatOvl').classList.remove('open')
 function sendMsg(){const inp=document.getElementById('chatInp');const txt=inp.value.trim();if(!txt)return;inp.value='';const msgs=document.getElementById('chatMsgs'),typ=document.getElementById('typInd');const d=document.createElement('div');d.className='msg in';d.innerHTML=`<div class="mb">${txt}</div><div class="mm">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>`;msgs.insertBefore(d,typ);msgs.scrollTop=msgs.scrollHeight;typ.style.display='';msgs.scrollTop=msgs.scrollHeight;setTimeout(()=>{typ.style.display='none';const r=['👍','!מעולה','OK!','Отлично!'];const x=document.createElement('div');x.className='msg out';x.innerHTML=`<div class="mb">${r[Math.floor(Math.random()*r.length)]}</div><div class="mm">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} ✓✓</div>`;msgs.insertBefore(x,typ);msgs.scrollTop=msgs.scrollHeight},1400)}
 
 // CABINET
+let _modUsersCache=[];
+function switchModSubtab(tab){
+  document.getElementById('modSubQueueBtn').classList.toggle('on',tab==='queue');
+  document.getElementById('modSubUsersBtn').classList.toggle('on',tab==='users');
+  document.getElementById('modSubQueueBtn').style.borderBottom=tab==='queue'?'2px solid var(--c)':'2px solid transparent';
+  document.getElementById('modSubUsersBtn').style.borderBottom=tab==='users'?'2px solid var(--c)':'2px solid transparent';
+  document.getElementById('modSubQueue').style.display=tab==='queue'?'':'none';
+  document.getElementById('modSubUsers').style.display=tab==='users'?'':'none';
+  if(tab==='users'&&!_modUsersCache.length)loadModUsers();
+}
+async function loadModStats(){
+  const token=localStorage.getItem('nesay_token');
+  try{
+    const res=await fetch(`${API}/admin/stats`,{headers:{Authorization:'Bearer '+token}});
+    if(!res.ok)return;
+    const d=await res.json();
+    const eu=document.getElementById('modStatUsers');if(eu)eu.textContent=d.users;
+    const el=document.getElementById('modStatListings');if(el)el.textContent=d.listings;
+    const ep=document.getElementById('modStatPending');if(ep)ep.textContent=d.pending;
+    const er=document.getElementById('modStatRevenue');if(er)er.textContent='₪'+Math.round(d.revenue).toLocaleString();
+  }catch(e){}
+}
+function renderModUsers(list){
+  const tbl=document.getElementById('modUsersTbl');
+  if(!tbl)return;
+  if(!list.length){tbl.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">—</td></tr>';return}
+  tbl.innerHTML=list.map(function(u){
+    const displayName=(u.name||'')+(u.surname?' '+u.surname:'')||u.email;
+    const regDate=u.created_at?new Date(u.created_at).toLocaleDateString('ru-RU'):'—';
+    const roleLbl=u.role==='agent'?t('role.agent'):u.role==='owner'?t('role.owner'):t('role.buyer');
+    return `<tr>
+      <td><b>${displayName}</b><br><span style="font-size:11px;color:var(--ink3)">${u.email}</span></td>
+      <td>${roleLbl}${u.is_moderator?' 🛡️':''}</td>
+      <td>${u.verified?'✅':'—'}</td>
+      <td>₪${parseInt(u.credits||0).toLocaleString()}</td>
+      <td>${u.listings_count}${parseInt(u.pending_count)>0?' <span style="color:var(--red)">('+u.pending_count+')</span>':''}</td>
+      <td>${u.referrals_count}</td>
+      <td>₪${Math.round(u.total_deposited||0).toLocaleString()}</td>
+      <td>${regDate}</td>
+    </tr>`;
+  }).join('');
+}
+function filterModUsers(q){
+  q=(q||'').toLowerCase().trim();
+  if(!q){renderModUsers(_modUsersCache);return}
+  const filtered=_modUsersCache.filter(function(u){
+    const name=((u.name||'')+' '+(u.surname||'')).toLowerCase();
+    const email=(u.email||'').toLowerCase();
+    return name.includes(q)||email.includes(q);
+  });
+  renderModUsers(filtered);
+}
+async function loadModUsers(){
+  const token=localStorage.getItem('nesay_token');
+  const tbl=document.getElementById('modUsersTbl');
+  if(tbl)tbl.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">'+t('loading')+'</td></tr>';
+  try{
+    const res=await fetch(`${API}/admin/users`,{headers:{Authorization:'Bearer '+token}});
+    if(!res.ok){if(tbl)tbl.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">'+t('err.load')+'</td></tr>';return}
+    _modUsersCache=await res.json();
+    renderModUsers(_modUsersCache);
+  }catch(e){if(tbl)tbl.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">'+t('server.down')+'</td></tr>'}
+}
 async function loadModerationQueue(){
+  loadModStats();
   const token=localStorage.getItem('nesay_token');
   const list=document.getElementById('modList');
   if(!list)return;
