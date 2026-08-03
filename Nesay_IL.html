@@ -1924,6 +1924,35 @@ const listings=[
     listings.push({id:b+k+1,dealType:dt,thumb:grads[Math.floor(Math.random()*grads.length)],icon:icons[Math.floor(Math.random()*icons.length)],priceNum:pnum,addr:{ru:st.ru+' '+num+', '+c.ru,he:st.he+' '+num+', '+c.he,en:st.en+' '+num+', '+c.en},rooms,sqm,floor:fl+'/'+(fl+Math.floor(1+Math.random()*12)),tags:tg,hi:[0],desc:{ru:'Уютная квартира в '+c.ru+'.',he:'דירה נחמדה ב'+c.he+'.',en:'Cozy apt in '+c.en+'.'},agent:ag,badge:Math.random()<.08?'new':null,lat:c.lat+(Math.random()-.5)*.03,lng:c.lng+(Math.random()-.5)*.03});
   }
 })();
+// ═══ ДЕМО-ФОТО (Unsplash, свободная лицензия) ═══
+(function(){
+  const Q='?w=800&q=70&auto=format&fit=crop';
+  const living=['1583847268964-b28dc8f51f92','1613575831056-0acd5da8f085','1612419299101-6c294dc2901d','1630699144867-37acec97df5a','1629042306547-c1d7c6c85ffa','1629042306548-afec37a5e46b','1629042306558-7d1e15cc02fa','1629042306541-85e77116aed3','1630699294897-723e02620662','1630699375895-fe5996d163ee','1663756915301-2ba688e078cf','1600493505873-cddd69453072','1567101692882-6630684230bf'];
+  const kitchen=['1714860534425-7ce04e013dec','1682888813795-192fca4a10d9','1665507279644-67d8ed143a84','1610177534644-34d881503b83','1680210849773-f97a41c6b7ed','1665507279638-5b48073c637b','1665507279750-ced2d97a9be9','1665507279636-0b268fb3f6ca','1665507279656-0cdec047c4ea','1665507279458-b21dea52c447','1666704369274-83898c9309ef','1658280911730-467b4764c09c','1669046222569-a7672da06e12'];
+  const bedroom=['1616594039964-ae9021a400a0','1560185893-a55cbc8c57e8','1562438668-bcf0ca6578f0','1586105251261-72a756497a11','1696762932825-2737db830bbe','1578683010236-d716f9a3f461','1633505650701-6104c4fc72c2','1615529162924-f8605388461d','1750420556288-d0e32a6f517b','1595526051245-4506e0005bd0','1642541070065-3912f347e7c6','1653974123568-b5eff6d851e1','1640109478916-f445f8f19b11'];
+  const bathroom=['1584622650111-993a426fbf0a','1631889993959-41b4e9c6e3c5','1507652313519-d4e9174996dd','1661107259637-4e1c55462428','1629079447777-1e605162dc8d','1576698483491-8c43f0862543','1643949719317-4342d8d4031e','1521783593447-5702b9bfd267','1603825491103-bd638b1873b0','1638799869566-b17fa794c4de','1650894622076-e09ab837c502'];
+  function url(id){return 'https://images.unsplash.com/photo-'+id+Q}
+  function shuffle(arr,seed){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      seed=(seed*9301+49297)%233280;
+      const j=Math.floor((seed/233280)*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+  listings.forEach(function(d,i){
+    const seed=(d.id||i)*7+13;
+    const count=5+(seed%3);
+    const lv=shuffle(living,seed)[0],lv2=shuffle(living,seed+1)[1];
+    const kt=shuffle(kitchen,seed)[0];
+    const bd=shuffle(bedroom,seed)[0],bd2=shuffle(bedroom,seed+2)[1];
+    const bt=shuffle(bathroom,seed)[0];
+    const pool=[lv,kt,bd,bt,lv2,bd2,shuffle(kitchen,seed+3)[1]].filter(Boolean);
+    d.allPhotos=pool.slice(0,count).map(url);
+    d.userPhoto=d.allPhotos[0];
+  });
+})();
 
 // ═══ STATE ═══
 let lang='ru',activeCat='all',activeIdx=-1,loggedIn=false,selectedRole='user',authMode='login';
