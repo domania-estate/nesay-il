@@ -36,7 +36,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
   display:flex;align-items:center;padding:0 20px;gap:12px;direction:ltr;
   box-shadow:var(--shadow-sm)}
 .logo{display:flex;align-items:center;gap:5px;font-size:21px;font-weight:900;color:var(--ink);text-decoration:none;letter-spacing:-0.5px;flex-shrink:0}
-.logo-ic{width:30px;height:30px;border-radius:9px;background:var(--c);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0}
+.logo-ic-img{height:34px;width:auto;flex-shrink:0}
 .logo em{font-style:normal;color:var(--c)}
 .cats{display:flex;gap:1px;overflow-x:auto;scrollbar-width:none;flex:1;padding:0 4px}
 .cats::-webkit-scrollbar{display:none}
@@ -1215,7 +1215,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 </head>
 <body>
 <nav>
-  <a href="#" class="logo"><span class="logo-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 20V11.5L12 4L20 11.5V20H14V14H10V20H4Z" fill="white"/></svg></span>omania</a>
+  <a href="#" class="logo"><img src="logo-icon.png" class="logo-ic-img" alt="Domania">omania</a>
   <div class="cats">
     <button class="ctab rt on" onclick="selCat(this,'all')"><span class="ctab-ico">🏠</span><span data-i18n="nav.all">Все</span></button>
     <button class="ctab rt" onclick="selCat(this,'rent')"><span class="ctab-ico">🔵</span><span data-i18n="nav.rent">Аренда</span></button>
