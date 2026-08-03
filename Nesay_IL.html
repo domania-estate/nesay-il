@@ -200,8 +200,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .dth.r{background:var(--rentbg);color:var(--rent);border-bottom:2px solid var(--rent)}
 .dth.s{background:var(--salebg);color:var(--sale);border-bottom:2px solid var(--sale)}
 .dtm{width:100%;height:200px;position:relative;flex-shrink:0;overflow:hidden}
-.dtm-slides{position:absolute;inset:0;display:flex;transition:transform .3s ease}
-.dtm-slide{min-width:100%;height:100%;background-size:cover;background-position:center;flex-shrink:0;cursor:zoom-in}
+.dtm-slides{position:absolute;inset:0;display:flex;transition:transform .3s ease;-webkit-backface-visibility:hidden;backface-visibility:hidden;will-change:transform}
+.dtm-slide{min-width:100%;height:100%;background-size:cover;background-position:center;flex-shrink:0;cursor:zoom-in;-webkit-transform:translateZ(0);transform:translateZ(0)}
 .dtm .slide-btn{width:32px;height:32px;font-size:14px;display:flex}
 .dtm .slide-dots{bottom:10px}
 .dtm .slide-dot{width:6px;height:6px}
@@ -2511,13 +2511,13 @@ function openDetail(idx){
   const slidesWrap=document.getElementById('dtmSlides'),prevBtn=document.getElementById('dtmPrev'),nextBtn=document.getElementById('dtmNext'),dotsWrap=document.getElementById('dtmDots');
   if(photos.length){
     bg.style.backgroundImage='';bg.style.display='none';em.style.display='none';
-    slidesWrap.style.display='flex';
-    slidesWrap.style.transform='translateX(0%)';
-    slidesWrap.innerHTML=photos.map(function(u){return `<div class="dtm-slide" style="background:url('${u}') center/cover" onclick="openLightbox(${idx},0)"></div>`}).join('');
+    slidesWrap.style.display='block';
+    slidesWrap.style.transform='none';
+    slidesWrap.innerHTML=`<div class="dtm-slide" id="dtmSingleSlide" style="width:100%;height:100%;position:absolute;inset:0;background:url('${photos[0]}') center/cover"></div>`;
+    document.getElementById('dtmSingleSlide').onclick=function(){openLightbox(idx,window._dtmIdx||0)};
     window._dtmIdx=0;window._dtmPhotos=photos;window._dtmListingIdx=idx;
     if(photos.length>1){prevBtn.style.display='flex';nextBtn.style.display='flex';dotsWrap.innerHTML=photos.map(function(_,i){return `<div class="slide-dot${i===0?' on':''}"></div>`}).join('')}
     else{prevBtn.style.display='none';nextBtn.style.display='none';dotsWrap.innerHTML=''}
-    slidesWrap.querySelectorAll('.dtm-slide').forEach(function(el,i){el.onclick=function(){openLightbox(idx,i)}});
   }else{
     slidesWrap.style.display='none';prevBtn.style.display='none';nextBtn.style.display='none';dotsWrap.innerHTML='';
     bg.style.display='';bg.style.background=d.thumb;bg.style.backgroundImage='';em.style.display='flex';em.textContent=d.icon;
@@ -2544,8 +2544,8 @@ function closeDetail(){activeIdx=-1;document.getElementById('detailPop').classLi
 function dtmNav(dir){
   if(!window._dtmPhotos||window._dtmPhotos.length<2)return;
   window._dtmIdx=(window._dtmIdx+dir+window._dtmPhotos.length)%window._dtmPhotos.length;
-  const wrap=document.getElementById('dtmSlides');
-  wrap.style.transform='translateX(-'+(window._dtmIdx*100)+'%)';
+  const slide=document.getElementById('dtmSingleSlide');
+  if(slide)slide.style.background=`url('${window._dtmPhotos[window._dtmIdx]}') center/cover`;
   document.querySelectorAll('#dtmDots .slide-dot').forEach(function(dot,i){dot.classList.toggle('on',i===window._dtmIdx)});
 }
 function openLightbox(listingIdx,photoIdx){
