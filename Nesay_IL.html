@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
 
-<title>Nesay.il — נדל״ן ישראל</title>
+<title>Domania — נדל״ן ישראל</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
@@ -35,7 +35,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
   border-bottom:1px solid rgba(0,0,0,.06);
   display:flex;align-items:center;padding:0 20px;gap:12px;direction:ltr;
   box-shadow:var(--shadow-sm)}
-.logo{font-size:22px;font-weight:900;color:var(--ink);text-decoration:none;letter-spacing:-1.2px;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:9px;font-size:21px;font-weight:900;color:var(--ink);text-decoration:none;letter-spacing:-0.5px;flex-shrink:0}
+.logo-ic{width:30px;height:30px;border-radius:9px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0}
 .logo em{font-style:normal;color:var(--c)}
 .cats{display:flex;gap:1px;overflow-x:auto;scrollbar-width:none;flex:1;padding:0 4px}
 .cats::-webkit-scrollbar{display:none}
@@ -1214,7 +1215,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 </head>
 <body>
 <nav>
-  <a href="#" class="logo">Nesay<em>.</em>il</a>
+  <a href="#" class="logo"><span class="logo-ic">D</span>Domania</a>
   <div class="cats">
     <button class="ctab rt on" onclick="selCat(this,'all')"><span class="ctab-ico">🏠</span><span data-i18n="nav.all">Все</span></button>
     <button class="ctab rt" onclick="selCat(this,'rent')"><span class="ctab-ico">🔵</span><span data-i18n="nav.rent">Аренда</span></button>
@@ -1360,7 +1361,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 <!-- AUTH -->
 <div class="ovl" id="authOvl" onclick="if(event.target===this)closeAuth()">
 <div class="modal" onclick="event.stopPropagation()" style="direction:ltr">
-  <div class="mhd"><div class="mtl" id="authTtl">Вход в Nesay.il</div><button class="mx" onclick="closeAuth()">✕</button></div>
+  <div class="mhd"><div class="mtl" id="authTtl">Вход в Domania</div><button class="mx" onclick="closeAuth()">✕</button></div>
   <div class="mbd">
     <div id="authS1">
       <div class="at">
@@ -2746,7 +2747,7 @@ function renderDz(){const l=document.getElementById('dzList');if(!l)return;l.inn
 // AUTH
 function openAuth(mode){authMode=mode;document.getElementById('authOvl').classList.add('open');document.getElementById('authS1').style.display='';document.getElementById('authS2').style.display='none';switchTab(mode)}
 function closeAuth(){document.getElementById('authOvl').classList.remove('open')}
-function switchTab(tab){authMode=tab;const isR=tab==='register';document.getElementById('tabLg').classList.toggle('on',!isR);document.getElementById('tabRg').classList.toggle('on',isR);document.getElementById('roleWrap').style.display=isR?'':'none';document.getElementById('nameWrap').style.display=isR?'':'none';document.getElementById('authBtn').textContent=isR?'Зарегистрироваться':'Войти';document.getElementById('authTtl').textContent=(isR?'Регистрация':'Вход')+' — Nesay.il'}
+function switchTab(tab){authMode=tab;const isR=tab==='register';document.getElementById('tabLg').classList.toggle('on',!isR);document.getElementById('tabRg').classList.toggle('on',isR);document.getElementById('roleWrap').style.display=isR?'':'none';document.getElementById('nameWrap').style.display=isR?'':'none';document.getElementById('authBtn').textContent=isR?'Зарегистрироваться':'Войти';document.getElementById('authTtl').textContent=(isR?'Регистрация':'Вход')+' — Domania'}
 function pickRole(card,role){document.querySelectorAll('.rc').forEach(c=>c.classList.remove('on'));card.classList.add('on');selectedRole=role;}
 // ═══ I18N — полный словарь ═══
 const I18N={
@@ -2778,7 +2779,7 @@ const I18N={
     'detail.honesty':'Индекс честности',
     'detail.wa':'💬 WhatsApp','detail.call':'📞 Позвонить','detail.chat':'💬 Написать в чат',
     'agent.type.agent':'Агент','agent.type.owner':'Владелец','agent.type.agency':'Агентство',
-    'auth.title_login':'Вход в Nesay.il','auth.title_reg':'Регистрация — Nesay.il',
+    'auth.title_login':'Вход в Domania','auth.title_reg':'Регистрация — Domania',
     'auth.login':'Войти','auth.register':'Регистрация',
     'auth.btn_login':'Войти','auth.btn_register':'Зарегистрироваться',
     'auth.email':'Email','auth.password':'Пароль','auth.name':'Имя',
@@ -2907,7 +2908,7 @@ const I18N={
     'detail.honesty':'Honesty index',
     'detail.wa':'💬 WhatsApp','detail.call':'📞 Call','detail.chat':'💬 Chat',
     'agent.type.agent':'Agent','agent.type.owner':'Owner','agent.type.agency':'Agency',
-    'auth.title_login':'Sign In to Nesay.il','auth.title_reg':'Register — Nesay.il',
+    'auth.title_login':'Sign In to Domania','auth.title_reg':'Register — Domania',
     'auth.login':'Sign In','auth.register':'Register',
     'auth.btn_login':'Sign In','auth.btn_register':'Create Account',
     'auth.email':'Email','auth.password':'Password','auth.name':'Name',
@@ -3034,7 +3035,7 @@ const I18N={
     'detail.honesty':'מדד אמינות',
     'detail.wa':'💬 ווטסאפ','detail.call':'📞 התקשר','detail.chat':'💬 שלח הודעה',
     'agent.type.agent':'סוכן','agent.type.owner':'בעל נכס','agent.type.agency':'משרד תיווך',
-    'auth.title_login':'כניסה ל-Nesay.il','auth.title_reg':'הרשמה — Nesay.il',
+    'auth.title_login':'כניסה ל-Domania','auth.title_reg':'הרשמה — Domania',
     'auth.login':'כניסה','auth.register':'הרשמה',
     'auth.btn_login':'כניסה','auth.btn_register':'הרשמה',
     'auth.email':'אימייל','auth.password':'סיסמה','auth.name':'שם',
