@@ -1218,6 +1218,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
   <a href="#" class="logo"><img src="logo-full.png" class="logo-ic-img" alt="Domania"></a>
   <div class="cats">
     <button class="ctab rt on" onclick="selCat(this,'all')"><span class="ctab-ico">🏠</span><span data-i18n="nav.all">Все</span></button>
+    <button class="ctab" onclick="openFavoritesView()"><span class="ctab-ico">❤️</span><span data-i18n="nav.favorites">Избранное</span></button>
     <button class="ctab rt" onclick="selCat(this,'rent')"><span class="ctab-ico">🔵</span><span data-i18n="nav.rent">Аренда</span></button>
     <button class="ctab st" onclick="selCat(this,'sale')"><span class="ctab-ico">🟠</span><span data-i18n="nav.sale">Продажа</span></button>
     <div class="sep"></div>
@@ -1370,6 +1371,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
         </div>
       </div>
     </div>
+    <div id="favTabs" style="display:flex;gap:6px;flex-wrap:wrap;padding:0 0 10px"></div>
     <div class="cl2" id="cardsList"></div>
   </div>
 </div>
@@ -2529,7 +2531,58 @@ function applyFilter(){
   rebuildMarkers(filteredListings);
 }
 
+let favLists=[], favItems=[], activeFavList=null, inFavoritesView=false;
+async function openFavoritesView(){
+  const token=localStorage.getItem('nesay_token');
+  if(!token){showToast(t('toast.need_auth'));return;}
+  inFavoritesView=true;
+  document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('on'));
+  try{
+    const res=await fetch(`${API}/listings/favorite-lists`,{headers:{Authorization:'Bearer '+token}});
+    const data=await res.json();
+    favLists=data.lists||[];
+    const itemsRes=await fetch(`${API}/listings/favorites/mine`,{headers:{Authorization:'Bearer '+token}});
+    favItems=await itemsRes.json();
+  }catch(e){favLists=[];favItems=[];}
+  activeFavList=null;
+  renderFavTabs();
+  renderFavView();
+}
+function renderFavTabs(){
+  const defCount=favItems.filter(f=>!f.list_id).length;
+  let html='<button class="fpill'+(activeFavList===null?' on':'')+'" onclick="switchFavTab(null)">'+t('fav.default')+' ('+defCount+')</button>';
+  favLists.forEach(l=>{
+    html+='<button class="fpill'+(activeFavList===l.id?' on':'')+'" onclick="switchFavTab(\''+l.id+'\')">'+l.name+' ('+l.count+')</button>';
+  });
+  html+='<button class="fpill" onclick="createFavList()">+ '+t('fav.new')+'</button>';
+  html+='<button class="fpill" onclick="closeFavoritesView()" style="margin-left:auto">✕ '+t('fav.exit')+'</button>';
+  const el=document.getElementById('favTabs');if(el)el.innerHTML=html;
+}
+function switchFavTab(id){activeFavList=id;renderFavTabs();renderFavView();}
+function renderFavView(){
+  const ids=favItems.filter(f=>(activeFavList===null?!f.list_id:f.list_id===activeFavList)).map(f=>String(f.listing_id));
+  const data=listings.filter(l=>ids.includes(String(l.id)));
+  renderCards(data);
+}
+async function createFavList(){
+  const name=prompt(t('fav.prompt'));
+  if(!name||!name.trim())return;
+  const token=localStorage.getItem('nesay_token');
+  try{
+    const res=await fetch(`${API}/listings/favorite-lists`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:name.trim()})});
+    const l=await res.json();
+    favLists.push({id:l.id,name:l.name,count:0});
+    renderFavTabs();
+  }catch(e){}
+}
+function closeFavoritesView(){
+  inFavoritesView=false;
+  const el=document.getElementById('favTabs');if(el)el.innerHTML='';
+  applyFilter();
+}
 function selCat(btn,cat){
+  inFavoritesView=false;
+  const ft=document.getElementById('favTabs');if(ft)ft.innerHTML='';
   document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');activeCat=cat;
   if(cat==='rent'||cat==='rent-apt'||cat==='rent-villa')activeType='rent';
@@ -2916,7 +2969,7 @@ const I18N={
     'filter.rooms12':'1–2 комн.','filter.rooms34':'3–4 комн.',
     'filter.saferoom':'Безоп. комн.','filter.parking':'Парковка',
     'filter.balcony':'Балкон','filter.garden':'Сад','filter.sea':'Море 🌊','filter.new':'Новые',
-    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать','filter.conditionTitle':'Состояние','filter.furnishedTitle':'Мебель','filter.petsTitle':'Можно ли с животными','pets.yes':'Да','pets.no':'Нет','pets.smallDog':'Маленькая собачка','pets.smallCat':'Маленький котик','cond.new':'Новый','cond.renovated':'Свежий ремонт','cond.cosmetic':'Косметический','cond.needsRepair':'Без ремонта','furn.full':'С мебелью','furn.partial':'Частично','furn.none':'Без мебели',
+    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать','nav.favorites':'Избранное','fav.default':'Себе','fav.new':'Новая подборка','fav.prompt':'Название подборки','fav.exit':'Показать все','filter.conditionTitle':'Состояние','filter.furnishedTitle':'Мебель','filter.petsTitle':'Можно ли с животными','pets.yes':'Да','pets.no':'Нет','pets.smallDog':'Маленькая собачка','pets.smallCat':'Маленький котик','cond.new':'Новый','cond.renovated':'Свежий ремонт','cond.cosmetic':'Косметический','cond.needsRepair':'Без ремонта','furn.full':'С мебелью','furn.partial':'Частично','furn.none':'Без мебели',
     'sort.label':'Релевантность','sort.rel':'🎯 Релевантность',
     'sort.price_asc':'💰 Цена ↑','sort.price_desc':'💰 Цена ↓','sort.new':'🆕 Сначала новые',
     'count':'Найдено','count_obj':'объектов',
@@ -3046,7 +3099,7 @@ const I18N={
     'filter.rooms12':'1–2 rooms','filter.rooms34':'3–4 rooms',
     'filter.saferoom':'Safe room','filter.parking':'Parking',
     'filter.balcony':'Balcony','filter.garden':'Garden','filter.sea':'Sea 🌊','filter.new':'New',
-    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show','filter.conditionTitle':'Condition','filter.furnishedTitle':'Furnishing','filter.petsTitle':'Pets allowed','pets.yes':'Yes','pets.no':'No','pets.smallDog':'Small dog','pets.smallCat':'Small cat','cond.new':'New','cond.renovated':'Renovated','cond.cosmetic':'Cosmetic','cond.needsRepair':'Needs repair','furn.full':'Furnished','furn.partial':'Partially furnished','furn.none':'Unfurnished',
+    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show','nav.favorites':'Favorites','fav.default':'Saved','fav.new':'New list','fav.prompt':'List name','fav.exit':'Show all','filter.conditionTitle':'Condition','filter.furnishedTitle':'Furnishing','filter.petsTitle':'Pets allowed','pets.yes':'Yes','pets.no':'No','pets.smallDog':'Small dog','pets.smallCat':'Small cat','cond.new':'New','cond.renovated':'Renovated','cond.cosmetic':'Cosmetic','cond.needsRepair':'Needs repair','furn.full':'Furnished','furn.partial':'Partially furnished','furn.none':'Unfurnished',
     'sort.label':'Relevance','sort.rel':'🎯 Relevance',
     'sort.price_asc':'💰 Price ↑','sort.price_desc':'💰 Price ↓','sort.new':'🆕 Newest first',
     'count':'Found','count_obj':'listings',
@@ -3174,7 +3227,7 @@ const I18N={
     'filter.rooms12':'1–2 חד\'','filter.rooms34':'3–4 חד\'',
     'filter.saferoom':'ממ"ד','filter.parking':'חניה',
     'filter.balcony':'מרפסת','filter.garden':'גינה','filter.sea':'ים 🌊','filter.new':'חדש',
-    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג','filter.conditionTitle':'מצב','filter.furnishedTitle':'ריהוט','filter.petsTitle':'בעלי חיים','pets.yes':'כן','pets.no':'לא','pets.smallDog':'כלב קטן','pets.smallCat':'חתול קטן','cond.new':'חדש','cond.renovated':'משופץ','cond.cosmetic':'קוסמטי','cond.needsRepair':'דורש שיפוץ','furn.full':'מרוהטת','furn.partial':'מרוהטת חלקית','furn.none':'לא מרוהטת',
+    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג','nav.favorites':'מועדפים','fav.default':'שלי','fav.new':'רשימה חדשה','fav.prompt':'שם הרשימה','fav.exit':'הצג הכל','filter.conditionTitle':'מצב','filter.furnishedTitle':'ריהוט','filter.petsTitle':'בעלי חיים','pets.yes':'כן','pets.no':'לא','pets.smallDog':'כלב קטן','pets.smallCat':'חתול קטן','cond.new':'חדש','cond.renovated':'משופץ','cond.cosmetic':'קוסמטי','cond.needsRepair':'דורש שיפוץ','furn.full':'מרוהטת','furn.partial':'מרוהטת חלקית','furn.none':'לא מרוהטת',
     'sort.label':'רלוונטיות','sort.rel':'🎯 רלוונטיות',
     'sort.price_asc':'💰 מחיר ↑','sort.price_desc':'💰 מחיר ↓','sort.new':'🆕 החדשים קודם',
     'count':'נמצאו','count_obj':'מודעות',
