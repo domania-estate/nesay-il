@@ -1301,6 +1301,16 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <div class="filters-scroll" id="filterPills">
         <button class="sbt" onclick="openFilterPanel()">🔧 <span id="filterLbl" data-i18n="filter.label">Фильтры</span></button>
       </div>
+      <div class="ovl" id="favNameOvl" onclick="if(event.target===this)closeFavNameModal()">
+        <div style="background:#fff;border-radius:16px;padding:20px;max-width:320px;width:100%">
+          <strong style="font-size:16px;display:block;margin-bottom:12px" data-i18n="fav.prompt">Название подборки</strong>
+          <input type="text" id="favNameInput" placeholder="Например: Родителям" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid #ddd;font-size:14px;margin-bottom:14px" onkeydown="if(event.key==='Enter')confirmCreateFavList()">
+          <div style="display:flex;gap:8px">
+            <button onclick="closeFavNameModal()" style="flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;background:#fff;font-weight:600;cursor:pointer" data-i18n="filter.reset">Отмена</button>
+            <button onclick="confirmCreateFavList()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#111;color:#fff;font-weight:600;cursor:pointer" data-i18n="fav.create">Создать</button>
+          </div>
+        </div>
+      </div>
       <div class="ovl" id="filterOvl" onclick="if(event.target===this)closeFilterPanel()">
         <div style="background:#fff;border-radius:16px;padding:20px;max-width:360px;width:100%;max-height:80vh;overflow-y:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -2564,9 +2574,18 @@ function renderFavView(){
   const data=listings.filter(l=>ids.includes(String(l.id)));
   renderCards(data);
 }
-async function createFavList(){
-  const name=prompt(t('fav.prompt'));
+function createFavList(){
+  document.getElementById('favNameInput').value='';
+  document.getElementById('favNameOvl').style.display='flex';
+  setTimeout(()=>document.getElementById('favNameInput').focus(),50);
+}
+function closeFavNameModal(){
+  document.getElementById('favNameOvl').style.display='none';
+}
+async function confirmCreateFavList(){
+  const name=document.getElementById('favNameInput').value;
   if(!name||!name.trim())return;
+  closeFavNameModal();
   const token=localStorage.getItem('nesay_token');
   try{
     const res=await fetch(`${API}/listings/favorite-lists`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({name:name.trim()})});
@@ -2969,7 +2988,7 @@ const I18N={
     'filter.rooms12':'1–2 комн.','filter.rooms34':'3–4 комн.',
     'filter.saferoom':'Безоп. комн.','filter.parking':'Парковка',
     'filter.balcony':'Балкон','filter.garden':'Сад','filter.sea':'Море 🌊','filter.new':'Новые',
-    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать','nav.favorites':'Избранное','fav.default':'Себе','fav.new':'Новая подборка','fav.prompt':'Название подборки','fav.exit':'Показать все','filter.conditionTitle':'Состояние','filter.furnishedTitle':'Мебель','filter.petsTitle':'Можно ли с животными','pets.yes':'Да','pets.no':'Нет','pets.smallDog':'Маленькая собачка','pets.smallCat':'Маленький котик','cond.new':'Новый','cond.renovated':'Свежий ремонт','cond.cosmetic':'Косметический','cond.needsRepair':'Без ремонта','furn.full':'С мебелью','furn.partial':'Частично','furn.none':'Без мебели',
+    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать','nav.favorites':'Избранное','fav.default':'Себе','fav.new':'Новая подборка','fav.prompt':'Название подборки','fav.create':'Создать','fav.exit':'Показать все','filter.conditionTitle':'Состояние','filter.furnishedTitle':'Мебель','filter.petsTitle':'Можно ли с животными','pets.yes':'Да','pets.no':'Нет','pets.smallDog':'Маленькая собачка','pets.smallCat':'Маленький котик','cond.new':'Новый','cond.renovated':'Свежий ремонт','cond.cosmetic':'Косметический','cond.needsRepair':'Без ремонта','furn.full':'С мебелью','furn.partial':'Частично','furn.none':'Без мебели',
     'sort.label':'Релевантность','sort.rel':'🎯 Релевантность',
     'sort.price_asc':'💰 Цена ↑','sort.price_desc':'💰 Цена ↓','sort.new':'🆕 Сначала новые',
     'count':'Найдено','count_obj':'объектов',
@@ -3099,7 +3118,7 @@ const I18N={
     'filter.rooms12':'1–2 rooms','filter.rooms34':'3–4 rooms',
     'filter.saferoom':'Safe room','filter.parking':'Parking',
     'filter.balcony':'Balcony','filter.garden':'Garden','filter.sea':'Sea 🌊','filter.new':'New',
-    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show','nav.favorites':'Favorites','fav.default':'Saved','fav.new':'New list','fav.prompt':'List name','fav.exit':'Show all','filter.conditionTitle':'Condition','filter.furnishedTitle':'Furnishing','filter.petsTitle':'Pets allowed','pets.yes':'Yes','pets.no':'No','pets.smallDog':'Small dog','pets.smallCat':'Small cat','cond.new':'New','cond.renovated':'Renovated','cond.cosmetic':'Cosmetic','cond.needsRepair':'Needs repair','furn.full':'Furnished','furn.partial':'Partially furnished','furn.none':'Unfurnished',
+    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show','nav.favorites':'Favorites','fav.default':'Saved','fav.new':'New list','fav.prompt':'List name','fav.create':'Create','fav.exit':'Show all','filter.conditionTitle':'Condition','filter.furnishedTitle':'Furnishing','filter.petsTitle':'Pets allowed','pets.yes':'Yes','pets.no':'No','pets.smallDog':'Small dog','pets.smallCat':'Small cat','cond.new':'New','cond.renovated':'Renovated','cond.cosmetic':'Cosmetic','cond.needsRepair':'Needs repair','furn.full':'Furnished','furn.partial':'Partially furnished','furn.none':'Unfurnished',
     'sort.label':'Relevance','sort.rel':'🎯 Relevance',
     'sort.price_asc':'💰 Price ↑','sort.price_desc':'💰 Price ↓','sort.new':'🆕 Newest first',
     'count':'Found','count_obj':'listings',
@@ -3227,7 +3246,7 @@ const I18N={
     'filter.rooms12':'1–2 חד\'','filter.rooms34':'3–4 חד\'',
     'filter.saferoom':'ממ"ד','filter.parking':'חניה',
     'filter.balcony':'מרפסת','filter.garden':'גינה','filter.sea':'ים 🌊','filter.new':'חדש',
-    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג','nav.favorites':'מועדפים','fav.default':'שלי','fav.new':'רשימה חדשה','fav.prompt':'שם הרשימה','fav.exit':'הצג הכל','filter.conditionTitle':'מצב','filter.furnishedTitle':'ריהוט','filter.petsTitle':'בעלי חיים','pets.yes':'כן','pets.no':'לא','pets.smallDog':'כלב קטן','pets.smallCat':'חתול קטן','cond.new':'חדש','cond.renovated':'משופץ','cond.cosmetic':'קוסמטי','cond.needsRepair':'דורש שיפוץ','furn.full':'מרוהטת','furn.partial':'מרוהטת חלקית','furn.none':'לא מרוהטת',
+    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג','nav.favorites':'מועדפים','fav.default':'שלי','fav.new':'רשימה חדשה','fav.prompt':'שם הרשימה','fav.create':'צור','fav.exit':'הצג הכל','filter.conditionTitle':'מצב','filter.furnishedTitle':'ריהוט','filter.petsTitle':'בעלי חיים','pets.yes':'כן','pets.no':'לא','pets.smallDog':'כלב קטן','pets.smallCat':'חתול קטן','cond.new':'חדש','cond.renovated':'משופץ','cond.cosmetic':'קוסמטי','cond.needsRepair':'דורש שיפוץ','furn.full':'מרוהטת','furn.partial':'מרוהטת חלקית','furn.none':'לא מרוהטת',
     'sort.label':'רלוונטיות','sort.rel':'🎯 רלוונטיות',
     'sort.price_asc':'💰 מחיר ↑','sort.price_desc':'💰 מחיר ↓','sort.new':'🆕 החדשים קודם',
     'count':'נמצאו','count_obj':'מודעות',
