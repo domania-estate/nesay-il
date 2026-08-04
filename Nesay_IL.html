@@ -2555,18 +2555,13 @@ async function openFavoritesView(){
   renderFavView();
 }
 function renderFavTabs(){
-  const defCount=favItems.filter(f=>!f.list_id).length;
-  let html='<button class="fpill'+(activeFavList===null?' on':'')+'" onclick="switchFavTab(null)">'+t('fav.default')+' ('+defCount+')</button>';
-  favLists.forEach(l=>{
-    html+='<button class="fpill'+(activeFavList===l.id?' on':'')+'" onclick="switchFavTab(\''+l.id+'\')">'+l.name+' ('+l.count+')</button>';
-  });
-  html+='<button class="fpill" onclick="createFavList()">+ '+t('fav.new')+'</button>';
-  html+='<button class="fpill" onclick="closeFavoritesView()" style="margin-left:auto">✕ '+t('fav.exit')+'</button>';
-  const el=document.getElementById('favTabs');if(el)el.innerHTML=html;
+  activeFavList='__all__';
+  const el=document.getElementById('favTabs');
+  if(el)el.innerHTML='<button class="fpill" onclick="closeFavoritesView()">✕ '+t('fav.exit')+'</button>';
 }
 function switchFavTab(id){activeFavList=id;renderFavTabs();renderFavView();}
 function renderFavView(){
-  const ids=favItems.filter(f=>(activeFavList===null?!f.list_id:f.list_id===activeFavList)).map(f=>String(f.listing_id));
+  const ids=favItems.map(f=>String(f.listing_id));
   const data=listings.filter(l=>ids.includes(String(l.id)));
   renderCards(data);
 }
