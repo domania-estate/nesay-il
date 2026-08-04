@@ -1296,22 +1296,30 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
         <button class="tt-btn" id="ttRent" onclick="ttSwitch('rent',this)" data-i18n="map.rent">🔵 Аренда</button>
         <button class="tt-btn" id="ttSale" onclick="ttSwitch('sale',this)" data-i18n="map.sale">🟠 Продажа</button>
       </div>
-      <!-- Filter pills -->
+      <!-- Filter dropdown -->
       <div class="filters-scroll" id="filterPills">
-        <button class="fpill" data-filter="rooms12" onclick="toggleFPill(this)" data-i18n="filter.rooms12">1–2 комн.</button>
-        <button class="fpill" data-filter="rooms34" onclick="toggleFPill(this)" data-i18n="filter.rooms34">3–4 комн.</button>
-        <button class="fpill" data-filter="safeRoom" onclick="toggleFPill(this)" data-i18n="filter.saferoom">Безоп. комн.</button>
-        <button class="fpill" data-filter="parking" onclick="toggleFPill(this)" data-i18n="filter.parking">Парковка</button>
-        <button class="fpill" data-filter="balcony" onclick="toggleFPill(this)" data-i18n="filter.balcony">Балкон</button>
-        <button class="fpill" data-filter="garden" onclick="toggleFPill(this)" data-i18n="filter.garden">Сад</button>
-        <button class="fpill" data-filter="sea" onclick="toggleFPill(this)" data-i18n="filter.sea">Море 🌊</button>
-        <button class="fpill" data-filter="new" onclick="toggleFPill(this)">Новые</button>
-        <button class="fpill" data-filter="owner" onclick="toggleFPill(this)">От собственника</button>
-        <button class="fpill" data-filter="agency" onclick="toggleFPill(this)">От агентства</button>
-        <button class="fpill" data-filter="elevator" onclick="toggleFPill(this)">Лифт</button>
-        <button class="fpill" data-filter="ac" onclick="toggleFPill(this)">Кондиционер</button>
-        <button class="fpill" data-filter="furnished" onclick="toggleFPill(this)">Мебель</button>
-        <button class="fpill" data-filter="pets" onclick="toggleFPill(this)">Можно с животными</button>
+        <div class="sdd" style="position:relative;display:inline-block">
+          <button class="sbt" onclick="document.getElementById('fmn').classList.toggle('open')">
+            🔧 <span id="filterLbl">Фильтры</span>▾
+          </button>
+          <div class="smn" id="fmn" style="min-width:230px;max-height:340px;overflow-y:auto">
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="owner" onchange="toggleFCheck(this)"><span>От собственника</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="agency" onchange="toggleFCheck(this)"><span>От агентства</span></label>
+            <div style="height:1px;background:var(--line);margin:6px 4px"></div>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="rooms12" onchange="toggleFCheck(this)"><span data-i18n="filter.rooms12">1–2 комн.</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="rooms34" onchange="toggleFCheck(this)"><span data-i18n="filter.rooms34">3–4 комн.</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="safeRoom" onchange="toggleFCheck(this)"><span data-i18n="filter.saferoom">Безоп. комн.</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="parking" onchange="toggleFCheck(this)"><span data-i18n="filter.parking">Парковка</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="balcony" onchange="toggleFCheck(this)"><span data-i18n="filter.balcony">Балкон</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="garden" onchange="toggleFCheck(this)"><span data-i18n="filter.garden">Сад</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="sea" onchange="toggleFCheck(this)"><span data-i18n="filter.sea">Море 🌊</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="new" onchange="toggleFCheck(this)"><span>Новые</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="elevator" onchange="toggleFCheck(this)"><span>Лифт</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="ac" onchange="toggleFCheck(this)"><span>Кондиционер</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="furnished" onchange="toggleFCheck(this)"><span>Мебель</span></label>
+            <label class="fchk" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:8px"><input type="checkbox" data-filter="pets" onchange="toggleFCheck(this)"><span>Можно с животными</span></label>
+          </div>
+        </div>
       </div>
     </div>
     <div class="sort-row">
@@ -2356,6 +2364,15 @@ function toggleFPill(el){
   if(el.classList.contains('on'))activeFilters.add(f);
   else activeFilters.delete(f);
   applyFilter();
+}
+function toggleFCheck(el){
+  const f=el.dataset.filter;
+  if(el.checked)activeFilters.add(f);
+  else activeFilters.delete(f);
+  applyFilter();
+  const n=activeFilters.size;
+  const lbl=document.getElementById('filterLbl');
+  if(lbl)lbl.textContent=n>0?('Фильтры ('+n+')'):'Фильтры';
 }
 
 function ttSwitch(type,btn){
@@ -3578,7 +3595,7 @@ function updateMapLang(l){if(!map)return;try{var ml=l==='he'?'he':l==='en'?'en':
 let _tt;
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2800)}
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.sdd'))document.getElementById('smn')?.classList.remove('open');
+  if(!e.target.closest('.sdd')){document.getElementById('smn')?.classList.remove('open');document.getElementById('fmn')?.classList.remove('open');}
   if(!e.target.closest('.aw'))document.getElementById('addrSugg')?.classList.add('hid');
 });
 
