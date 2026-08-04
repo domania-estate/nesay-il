@@ -1308,6 +1308,10 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
         <button class="fpill" data-filter="new" onclick="toggleFPill(this)">Новые</button>
         <button class="fpill" data-filter="owner" onclick="toggleFPill(this)">От собственника</button>
         <button class="fpill" data-filter="agency" onclick="toggleFPill(this)">От агентства</button>
+        <button class="fpill" data-filter="elevator" onclick="toggleFPill(this)">Лифт</button>
+        <button class="fpill" data-filter="ac" onclick="toggleFPill(this)">Кондиционер</button>
+        <button class="fpill" data-filter="furnished" onclick="toggleFPill(this)">Мебель</button>
+        <button class="fpill" data-filter="pets" onclick="toggleFPill(this)">Можно с животными</button>
       </div>
     </div>
     <div class="sort-row">
@@ -1915,7 +1919,23 @@ const listings=[
   const grads=['linear-gradient(135deg,#1a3a5c,#0d5480)','linear-gradient(135deg,#2d4a1e,#4a7c2f)','linear-gradient(135deg,#5c1a3a,#8f2d5c)','linear-gradient(135deg,#3a2a0e,#7a5a20)','linear-gradient(135deg,#0e2a3a,#1a5c7a)'];
   const icons=['🏢','🏠','🏘️','🏡','🌿','🏙️'];
   const ags=[{name:'RE/MAX',initials:'RM',type:'agency',verified:true,deals:380,rating:4.8,reviews:891,honesty:95},{name:'David Levy',initials:'DL',type:'agent',verified:false,deals:19,rating:4.0,reviews:31,honesty:62},{name:'Tamar Gold',initials:'TG',type:'agent',verified:true,deals:67,rating:4.6,reviews:154,honesty:84}];
-  const tags=[{ru:['Безоп. комн. ✓','Балкон ✓','Лифт'],he:["ממ\"ד ✓",'מרפסת ✓','מעלית'],en:['Safe room ✓','Balcony ✓','Elevator']},{ru:['Парковка','Сад','Балкон'],he:['חניה','גינה','מרפסת'],en:['Parking','Garden','Balcony']},{ru:['Вид на море ✓','Балкон'],he:['נוף ים ✓','מרפסת'],en:['Sea view ✓','Balcony']}];
+  const AMENITIES=[
+    {ru:'Балкон',he:'מרפסת',en:'Balcony'},
+    {ru:'Парковка',he:'חניה',en:'Parking'},
+    {ru:'Сад',he:'גינה',en:'Garden'},
+    {ru:'Вид на море',he:'נוף ים',en:'Sea view'},
+    {ru:'Безоп. комн.',he:'ממ"ד',en:'Safe room'},
+    {ru:'Лифт',he:'מעלית',en:'Elevator'},
+    {ru:'Кондиц.',he:'מזגן',en:'A/C'},
+    {ru:'Мебель',he:'מרוהטת',en:'Furnished'},
+    {ru:'Можно с животными',he:'מותר בעלי חיים',en:'Pets allowed'},
+    {ru:'Кладовая',he:'מחסן',en:'Storage'}
+  ];
+  function randomTags(){
+    const n=2+Math.floor(Math.random()*3);
+    const pool=[...AMENITIES].sort(()=>Math.random()-.5).slice(0,n);
+    return {ru:pool.map(t=>t.ru),he:pool.map(t=>t.he),en:pool.map(t=>t.en)};
+  }
   const b=listings.length;
   for(let k=0;k<80;k++){
     const c=cities[k%cities.length];const dt=Math.random()<.6?'rent':'sale';
@@ -1923,7 +1943,7 @@ const listings=[
     const sqm=Math.floor(35+Math.random()*150);const fl=Math.floor(1+Math.random()*13);
     const st=streets[Math.floor(Math.random()*streets.length)];const num=Math.floor(2+Math.random()*180);
     const pnum=dt==='rent'?Math.floor(3000+Math.random()*9000):Math.floor(900000+Math.random()*2500000);
-    const tg=tags[Math.floor(Math.random()*tags.length)];const ag=ags[Math.floor(Math.random()*ags.length)];
+    const tg=randomTags();const ag=ags[Math.floor(Math.random()*ags.length)];
     listings.push({id:b+k+1,dealType:dt,thumb:grads[Math.floor(Math.random()*grads.length)],icon:icons[Math.floor(Math.random()*icons.length)],priceNum:pnum,addr:{ru:st.ru+' '+num+', '+c.ru,he:st.he+' '+num+', '+c.he,en:st.en+' '+num+', '+c.en},rooms,sqm,floor:fl+'/'+(fl+Math.floor(1+Math.random()*12)),tags:tg,hi:[0],desc:{ru:'Уютная квартира в '+c.ru+'.',he:'דירה נחמדה ב'+c.he+'.',en:'Cozy apt in '+c.en+'.'},agent:ag,badge:Math.random()<.08?'new':null,lat:c.lat+(Math.random()-.5)*.03,lng:c.lng+(Math.random()-.5)*.03});
   }
 })();
@@ -2324,6 +2344,10 @@ const FILTER_MAP={
   new:(d)=>d.badge==='new',
   owner:(d)=>d.agent.type==='owner',
   agency:(d)=>d.agent.type==='agency'||d.agent.type==='agent',
+  elevator:(d)=>d.tags.ru.some(t=>t.includes('Лифт')),
+  ac:(d)=>d.tags.ru.some(t=>t.includes('Кондиц')),
+  furnished:(d)=>d.tags.ru.some(t=>t.includes('Мебель')),
+  pets:(d)=>d.tags.ru.some(t=>t.includes('животными')),
 };
 
 function toggleFPill(el){
