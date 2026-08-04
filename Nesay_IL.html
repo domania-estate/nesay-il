@@ -1306,6 +1306,8 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
         <button class="fpill" data-filter="garden" onclick="toggleFPill(this)" data-i18n="filter.garden">Сад</button>
         <button class="fpill" data-filter="sea" onclick="toggleFPill(this)" data-i18n="filter.sea">Море 🌊</button>
         <button class="fpill" data-filter="new" onclick="toggleFPill(this)">Новые</button>
+        <button class="fpill" data-filter="owner" onclick="toggleFPill(this)">От собственника</button>
+        <button class="fpill" data-filter="agency" onclick="toggleFPill(this)">От агентства</button>
       </div>
     </div>
     <div class="sort-row">
@@ -2320,6 +2322,8 @@ const FILTER_MAP={
   garden:(d)=>d.tags.ru.some(t=>t.includes('Сад') || t.includes('גינה') || t.includes('Garden')),
   sea:(d)=>d.tags.ru.some(t=>t.includes('море') || t.includes('ים') || t.includes('Sea')),
   new:(d)=>d.badge==='new',
+  owner:(d)=>d.agent.type==='owner',
+  agency:(d)=>d.agent.type==='agency'||d.agent.type==='agent',
 };
 
 function toggleFPill(el){
