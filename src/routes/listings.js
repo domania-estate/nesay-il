@@ -273,6 +273,18 @@ router.delete('/favorite-lists/:listId', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка' });
   }
 });
+// Мои избранные объекты (id + подборка)
+router.get('/favorites/mine', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT listing_id, list_id FROM favorites WHERE user_id = $1',
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
 
 // Удалить объявление
 router.delete('/:id', requireAuth, async (req, res) => {
