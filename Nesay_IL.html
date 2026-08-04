@@ -1318,6 +1318,19 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
             <button class="fseller" data-seller="owner" onclick="toggleSeller(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="filter.owner">От собственника</button>
             <button class="fseller" data-seller="agency" onclick="toggleSeller(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="filter.agency">От агентства</button>
           </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.conditionTitle">Состояние</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+            <button class="fcond" data-cond="new" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.new">Новый</button>
+            <button class="fcond" data-cond="renovated" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.renovated">Свежий ремонт</button>
+            <button class="fcond" data-cond="cosmetic" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.cosmetic">Косметический</button>
+            <button class="fcond" data-cond="needs_repair" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.needsRepair">Требует ремонта</button>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.furnishedTitle">Мебель</p>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button class="ffurn" data-furn="full" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.full">С мебелью</button>
+            <button class="ffurn" data-furn="partial" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.partial">Частично</button>
+            <button class="ffurn" data-furn="none" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.none">Без мебели</button>
+          </div>
           <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.amenitiesTitle">Удобства</p>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
             <button class="fchip" data-filter="safeRoom" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.saferoom">Безоп. комн.</button>
@@ -1328,7 +1341,6 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
             <button class="fchip" data-filter="new" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.new">Новые</button>
             <button class="fchip" data-filter="elevator" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.elevator">Лифт</button>
             <button class="fchip" data-filter="ac" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.ac">Кондиционер</button>
-            <button class="fchip" data-filter="furnished" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.furnished">Мебель</button>
             <button class="fchip" data-filter="pets" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.pets">Можно с животными</button>
           </div>
           <div style="display:flex;gap:8px">
@@ -1951,7 +1963,6 @@ const listings=[
     {ru:'Безоп. комн.',he:'ממ"ד',en:'Safe room'},
     {ru:'Лифт',he:'מעלית',en:'Elevator'},
     {ru:'Кондиц.',he:'מזגן',en:'A/C'},
-    {ru:'Мебель',he:'מרוהטת',en:'Furnished'},
     {ru:'Можно с животными',he:'מותר בעלי חיים',en:'Pets allowed'},
     {ru:'Кладовая',he:'מחסן',en:'Storage'}
   ];
@@ -1967,8 +1978,8 @@ const listings=[
     const sqm=Math.floor(35+Math.random()*150);const fl=Math.floor(1+Math.random()*13);
     const st=streets[Math.floor(Math.random()*streets.length)];const num=Math.floor(2+Math.random()*180);
     const pnum=dt==='rent'?Math.floor(3000+Math.random()*9000):Math.floor(900000+Math.random()*2500000);
-    const tg=randomTags();const ag=ags[Math.floor(Math.random()*ags.length)];
-    listings.push({id:b+k+1,dealType:dt,thumb:grads[Math.floor(Math.random()*grads.length)],icon:icons[Math.floor(Math.random()*icons.length)],priceNum:pnum,addr:{ru:st.ru+' '+num+', '+c.ru,he:st.he+' '+num+', '+c.he,en:st.en+' '+num+', '+c.en},rooms,sqm,floor:fl+'/'+(fl+Math.floor(1+Math.random()*12)),tags:tg,hi:[0],desc:{ru:'Уютная квартира в '+c.ru+'.',he:'דירה נחמדה ב'+c.he+'.',en:'Cozy apt in '+c.en+'.'},agent:ag,badge:Math.random()<.08?'new':null,lat:c.lat+(Math.random()-.5)*.03,lng:c.lng+(Math.random()-.5)*.03});
+    const tg=randomTags();const ag=ags[Math.floor(Math.random()*ags.length)];const conds=['new','renovated','cosmetic','needs_repair'];const cond=conds[Math.floor(Math.random()*conds.length)];const furns=['full','partial','none'];const furn=furns[Math.floor(Math.random()*furns.length)];
+    listings.push({id:b+k+1,dealType:dt,thumb:grads[Math.floor(Math.random()*grads.length)],icon:icons[Math.floor(Math.random()*icons.length)],priceNum:pnum,addr:{ru:st.ru+' '+num+', '+c.ru,he:st.he+' '+num+', '+c.he,en:st.en+' '+num+', '+c.en},rooms,sqm,floor:fl+'/'+(fl+Math.floor(1+Math.random()*12)),tags:tg,condition:cond,furnished:furn,hi:[0],desc:{ru:'Уютная квартира в '+c.ru+'.',he:'דירה נחמדה ב'+c.he+'.',en:'Cozy apt in '+c.en+'.'},agent:ag,badge:Math.random()<.08?'new':null,lat:c.lat+(Math.random()-.5)*.03,lng:c.lng+(Math.random()-.5)*.03});
   }
 })();
 // ═══ ДЕМО-ФОТО (Unsplash, свободная лицензия) ═══
@@ -2372,6 +2383,13 @@ const FILTER_MAP={
   rooms2:(d)=>d.rooms>=2&&d.rooms<3,
   rooms3:(d)=>d.rooms>=3&&d.rooms<4,
   rooms4plus:(d)=>d.rooms>=4,
+  cond_new:(d)=>d.condition==='new',
+  cond_renovated:(d)=>d.condition==='renovated',
+  cond_cosmetic:(d)=>d.condition==='cosmetic',
+  cond_needs_repair:(d)=>d.condition==='needs_repair',
+  furn_full:(d)=>d.furnished==='full',
+  furn_partial:(d)=>d.furnished==='partial',
+  furn_none:(d)=>d.furnished==='none',
   elevator:(d)=>d.tags.ru.some(t=>t.includes('Лифт')),
   ac:(d)=>d.tags.ru.some(t=>t.includes('Кондиц')),
   furnished:(d)=>d.tags.ru.some(t=>t.includes('Мебель')),
@@ -2394,7 +2412,7 @@ function toggleFCheck(el){
   const lbl=document.getElementById('filterLbl');
   if(lbl)lbl.textContent=n>0?(t('filter.label')+' ('+n+')'):t('filter.label');
 }
-let panelRooms=new Set(), panelSeller=null, panelAmenities=new Set();
+let panelRooms=new Set(), panelSeller=null, panelAmenities=new Set(), panelCondition=null, panelFurnished=null;
 function paintToggle(el,on){
   el.style.background=on?'#eef2ff':'#fff';
   el.style.borderColor=on?'#3167F1':'#ddd';
@@ -2421,9 +2439,21 @@ function closeFilterPanel(){
   document.getElementById('filterOvl').style.display='none';
   applyPanelFilters();
 }
+function toggleCondition(el){
+  const c=el.dataset.cond;
+  document.querySelectorAll('.fcond').forEach(b=>paintToggle(b,false));
+  if(panelCondition===c){panelCondition=null;}
+  else{panelCondition=c;paintToggle(el,true);}
+}
+function toggleFurnished(el){
+  const f=el.dataset.furn;
+  document.querySelectorAll('.ffurn').forEach(b=>paintToggle(b,false));
+  if(panelFurnished===f){panelFurnished=null;}
+  else{panelFurnished=f;paintToggle(el,true);}
+}
 function resetFilterPanel(){
-  panelRooms.clear();panelSeller=null;panelAmenities.clear();
-  document.querySelectorAll('.froom,.fseller,.fchip').forEach(b=>paintToggle(b,false));
+  panelRooms.clear();panelSeller=null;panelAmenities.clear();panelCondition=null;panelFurnished=null;
+  document.querySelectorAll('.froom,.fseller,.fchip,.fcond,.ffurn').forEach(b=>paintToggle(b,false));
   applyPanelFilters();
 }
 function applyPanelFilters(){
@@ -2431,9 +2461,11 @@ function applyPanelFilters(){
   panelRooms.forEach(r=>activeFilters.add('rooms'+r));
   if(panelSeller)activeFilters.add(panelSeller);
   panelAmenities.forEach(a=>activeFilters.add(a));
+  if(panelCondition)activeFilters.add('cond_'+panelCondition);
+  if(panelFurnished)activeFilters.add('furn_'+panelFurnished);
   applyFilter();
   const lbl=document.getElementById('filterLbl');
-  const n=panelRooms.size+(panelSeller?1:0)+panelAmenities.size;
+  const n=panelRooms.size+(panelSeller?1:0)+panelAmenities.size+(panelCondition?1:0)+(panelFurnished?1:0);
   if(lbl)lbl.textContent=n>0?(t('filter.label')+' ('+n+')'):t('filter.label');
 }
 
@@ -2869,7 +2901,7 @@ const I18N={
     'filter.rooms12':'1–2 комн.','filter.rooms34':'3–4 комн.',
     'filter.saferoom':'Безоп. комн.','filter.parking':'Парковка',
     'filter.balcony':'Балкон','filter.garden':'Сад','filter.sea':'Море 🌊','filter.new':'Новые',
-    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать',
+    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать','filter.conditionTitle':'Состояние','filter.furnishedTitle':'Мебель','cond.new':'Новый','cond.renovated':'Свежий ремонт','cond.cosmetic':'Косметический','cond.needsRepair':'Требует ремонта','furn.full':'С мебелью','furn.partial':'Частично','furn.none':'Без мебели',
     'sort.label':'Релевантность','sort.rel':'🎯 Релевантность',
     'sort.price_asc':'💰 Цена ↑','sort.price_desc':'💰 Цена ↓','sort.new':'🆕 Сначала новые',
     'count':'Найдено','count_obj':'объектов',
@@ -2999,7 +3031,7 @@ const I18N={
     'filter.rooms12':'1–2 rooms','filter.rooms34':'3–4 rooms',
     'filter.saferoom':'Safe room','filter.parking':'Parking',
     'filter.balcony':'Balcony','filter.garden':'Garden','filter.sea':'Sea 🌊','filter.new':'New',
-    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show',
+    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show','filter.conditionTitle':'Condition','filter.furnishedTitle':'Furnishing','cond.new':'New','cond.renovated':'Renovated','cond.cosmetic':'Cosmetic','cond.needsRepair':'Needs repair','furn.full':'Furnished','furn.partial':'Partially furnished','furn.none':'Unfurnished',
     'sort.label':'Relevance','sort.rel':'🎯 Relevance',
     'sort.price_asc':'💰 Price ↑','sort.price_desc':'💰 Price ↓','sort.new':'🆕 Newest first',
     'count':'Found','count_obj':'listings',
@@ -3127,7 +3159,7 @@ const I18N={
     'filter.rooms12':'1–2 חד\'','filter.rooms34':'3–4 חד\'',
     'filter.saferoom':'ממ"ד','filter.parking':'חניה',
     'filter.balcony':'מרפסת','filter.garden':'גינה','filter.sea':'ים 🌊','filter.new':'חדש',
-    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג',
+    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג','filter.conditionTitle':'מצב','filter.furnishedTitle':'ריהוט','cond.new':'חדש','cond.renovated':'משופץ','cond.cosmetic':'קוסמטי','cond.needsRepair':'דורש שיפוץ','furn.full':'מרוהטת','furn.partial':'מרוהטת חלקית','furn.none':'לא מרוהטת',
     'sort.label':'רלוונטיות','sort.rel':'🎯 רלוונטיות',
     'sort.price_asc':'💰 מחיר ↑','sort.price_desc':'💰 מחיר ↓','sort.new':'🆕 החדשים קודם',
     'count':'נמצאו','count_obj':'מודעות',
