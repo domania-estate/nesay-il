@@ -1120,6 +1120,11 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
   transform-style:preserve-3d;
   -webkit-transform-style:preserve-3d;
   will-change:transform;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+}
+@supports (-webkit-touch-callout:none) {
+  #nesay-loader { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; }
 }
 
 /* Triangle 1 pointing UP - blue */
@@ -1173,6 +1178,8 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 
 #loader-star.spin {
   animation:starSpin3D 1.4s cubic-bezier(0.4,0,0.2,1) forwards !important;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
 }
 
 #nesay-loader .loader-text {
