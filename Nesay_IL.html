@@ -1330,60 +1330,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
           <button onclick="goToSavedSearches()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#3167F1;color:#fff;font-weight:700;cursor:pointer;font-size:14px" data-i18n="search.goToSearches">Перейти к поискам</button>
         </div>
       </div>
-      <div class="ovl" id="filterOvl" onclick="if(event.target===this)closeFilterPanel()">
-        <div style="background:#fff;border-radius:16px;padding:20px;max-width:360px;width:100%;max-height:80vh;overflow-y:auto">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <strong style="font-size:16px" data-i18n="filter.title">Фильтры</strong>
-            <span onclick="closeFilterPanel()" style="cursor:pointer;font-size:18px">✕</span>
-          </div>
-          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.roomsTitle">Комнаты</p>
-          <div style="display:flex;gap:6px;margin-bottom:14px">
-            <button class="froom" data-rooms="1" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">1</button>
-            <button class="froom" data-rooms="2" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">2</button>
-            <button class="froom" data-rooms="3" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">3</button>
-            <button class="froom" data-rooms="4plus" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">4+</button>
-          </div>
-          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.sellerTitle">Тип продавца</p>
-          <div style="display:flex;gap:8px;margin-bottom:14px">
-            <button class="fseller" data-seller="owner" onclick="toggleSeller(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="filter.owner">От собственника</button>
-            <button class="fseller" data-seller="agency" onclick="toggleSeller(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="filter.agency">От агентства</button>
-          </div>
-          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.conditionTitle">Состояние</p>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-            <button class="fcond" data-cond="new" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.new">Новый</button>
-            <button class="fcond" data-cond="renovated" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.renovated">Свежий ремонт</button>
-            <button class="fcond" data-cond="cosmetic" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.cosmetic">Косметический</button>
-            <button class="fcond" data-cond="needs_repair" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.needsRepair">Без ремонта</button>
-          </div>
-          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.furnishedTitle">Мебель</p>
-          <div style="display:flex;gap:8px;margin-bottom:14px">
-            <button class="ffurn" data-furn="full" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.full">С мебелью</button>
-            <button class="ffurn" data-furn="partial" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.partial">Частично</button>
-            <button class="ffurn" data-furn="none" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.none">Без мебели</button>
-          </div>
-          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.petsTitle">Можно ли с животными</p>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-            <button class="fpets" data-pets="yes" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.yes">Да</button>
-            <button class="fpets" data-pets="no" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.no">Нет</button>
-            <button class="fpets" data-pets="small_dog" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.smallDog">Маленькая собачка</button>
-            <button class="fpets" data-pets="small_cat" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.smallCat">Маленький котик</button>
-          </div>
-          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.amenitiesTitle">Удобства</p>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
-            <button class="fchip" data-filter="safeRoom" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.saferoom">Безоп. комн.</button>
-            <button class="fchip" data-filter="parking" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.parking">Парковка</button>
-            <button class="fchip" data-filter="balcony" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.balcony">Балкон</button>
-            <button class="fchip" data-filter="garden" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.garden">Сад</button>
-            <button class="fchip" data-filter="sea" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.sea">Море 🌊</button>
-            <button class="fchip" data-filter="elevator" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.elevator">Лифт</button>
-            <button class="fchip" data-filter="ac" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.ac">Кондиционер</button>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button onclick="resetFilterPanel()" style="flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;background:#fff;font-weight:600;cursor:pointer" data-i18n="filter.reset">Сбросить</button>
-            <button onclick="closeFilterPanel()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#111;color:#fff;font-weight:600;cursor:pointer" data-i18n="filter.apply">Показать</button>
-          </div>
-        </div>
-      </div>
+      
     </div>
     <div class="sort-row">
       <div class="cnt">Найдено <b id="cntNum">0</b> объектов</div>
@@ -4709,5 +4656,59 @@ function copyRefLink(){
   };
 })();
 </script>
+<div class="ovl" id="filterOvl" onclick="if(event.target===this)closeFilterPanel()">
+        <div style="background:#fff;border-radius:16px;padding:20px;max-width:360px;width:100%;max-height:80vh;overflow-y:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <strong style="font-size:16px" data-i18n="filter.title">Фильтры</strong>
+            <span onclick="closeFilterPanel()" style="cursor:pointer;font-size:18px">✕</span>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.roomsTitle">Комнаты</p>
+          <div style="display:flex;gap:6px;margin-bottom:14px">
+            <button class="froom" data-rooms="1" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">1</button>
+            <button class="froom" data-rooms="2" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">2</button>
+            <button class="froom" data-rooms="3" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">3</button>
+            <button class="froom" data-rooms="4plus" onclick="toggleRoom(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;cursor:pointer">4+</button>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.sellerTitle">Тип продавца</p>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button class="fseller" data-seller="owner" onclick="toggleSeller(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="filter.owner">От собственника</button>
+            <button class="fseller" data-seller="agency" onclick="toggleSeller(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="filter.agency">От агентства</button>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.conditionTitle">Состояние</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+            <button class="fcond" data-cond="new" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.new">Новый</button>
+            <button class="fcond" data-cond="renovated" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.renovated">Свежий ремонт</button>
+            <button class="fcond" data-cond="cosmetic" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.cosmetic">Косметический</button>
+            <button class="fcond" data-cond="needs_repair" onclick="toggleCondition(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="cond.needsRepair">Без ремонта</button>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.furnishedTitle">Мебель</p>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button class="ffurn" data-furn="full" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.full">С мебелью</button>
+            <button class="ffurn" data-furn="partial" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.partial">Частично</button>
+            <button class="ffurn" data-furn="none" onclick="toggleFurnished(this)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:12px;cursor:pointer" data-i18n="furn.none">Без мебели</button>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.petsTitle">Можно ли с животными</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+            <button class="fpets" data-pets="yes" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.yes">Да</button>
+            <button class="fpets" data-pets="no" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.no">Нет</button>
+            <button class="fpets" data-pets="small_dog" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.smallDog">Маленькая собачка</button>
+            <button class="fpets" data-pets="small_cat" onclick="togglePets(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="pets.smallCat">Маленький котик</button>
+          </div>
+          <p style="font-size:12px;font-weight:700;color:#888;margin:0 0 6px" data-i18n="filter.amenitiesTitle">Удобства</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+            <button class="fchip" data-filter="safeRoom" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.saferoom">Безоп. комн.</button>
+            <button class="fchip" data-filter="parking" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.parking">Парковка</button>
+            <button class="fchip" data-filter="balcony" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.balcony">Балкон</button>
+            <button class="fchip" data-filter="garden" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.garden">Сад</button>
+            <button class="fchip" data-filter="sea" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.sea">Море 🌊</button>
+            <button class="fchip" data-filter="elevator" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.elevator">Лифт</button>
+            <button class="fchip" data-filter="ac" onclick="toggleChip(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer" data-i18n="filter.ac">Кондиционер</button>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="resetFilterPanel()" style="flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;background:#fff;font-weight:600;cursor:pointer" data-i18n="filter.reset">Сбросить</button>
+            <button onclick="closeFilterPanel()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#111;color:#fff;font-weight:600;cursor:pointer" data-i18n="filter.apply">Показать</button>
+          </div>
+        </div>
+      </div>
 </body>
 </html>
