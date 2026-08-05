@@ -4201,7 +4201,6 @@ tryAutoLogin();
     <button class="M-pill p-all" id="Mp-all"  onclick="M.type('all',this)">🏠 Все</button>
     <button class="M-pill"       id="Mp-rent" onclick="M.type('rent',this)" data-i18n="map.rent">🔵 Аренда</button>
     <button class="M-pill"       id="Mp-sale" onclick="M.type('sale',this)" data-i18n="map.sale">🟠 Продажа</button>
-    <button class="M-pill" onclick="openFilterPanel()">🔧 <span id="mFilterLbl" data-i18n="filter.label">Фильтры</span></button>
   </div>
 </div>
 
@@ -4209,7 +4208,7 @@ tryAutoLogin();
 <div id="M-list-wrap">
   <div class="M-list-head">
     <span class="M-cnt-lbl" id="M-cnt">Загрузка...</span>
-    <span class="M-sort-btn" onclick="openFilterPanel()">🔧 <span id="mFilterLbl2">Фильтры</span></span>
+    <button type="button" class="M-sort-btn" style="border:none" onclick="openFilterPanel()">🔧 <span id="mFilterLbl2">Фильтры</span></button>
     <span class="M-sort-btn" onclick="M.cycleSort()">
       <span id="M-sort-ico">🎯</span>
       <span id="M-sort-txt">Релевантность</span> ▾
