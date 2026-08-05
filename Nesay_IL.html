@@ -2588,6 +2588,9 @@ function applyFilter(){
   filteredListings=getFiltered();
   renderCards(filteredListings);
   rebuildMarkers(filteredListings);
+  if(typeof M!=='undefined'&&M.renderCards)M.renderCards();
+  const mlbl=document.getElementById('mFilterLbl');
+  if(mlbl){const n=activeFilters.size;mlbl.textContent=n>0?(t('filter.label')+' ('+n+')'):t('filter.label');}
 }
 
 let favLists=[], favItems=[], activeFavList=null, inFavoritesView=false;
@@ -4196,6 +4199,7 @@ tryAutoLogin();
     <button class="M-pill p-all" id="Mp-all"  onclick="M.type('all',this)">🏠 Все</button>
     <button class="M-pill"       id="Mp-rent" onclick="M.type('rent',this)" data-i18n="map.rent">🔵 Аренда</button>
     <button class="M-pill"       id="Mp-sale" onclick="M.type('sale',this)" data-i18n="map.sale">🟠 Продажа</button>
+    <button class="M-pill" onclick="openFilterPanel()">🔧 <span id="mFilterLbl" data-i18n="filter.label">Фильтры</span></button>
   </div>
 </div>
 
