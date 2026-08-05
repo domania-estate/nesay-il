@@ -1227,8 +1227,24 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
   <div class="cats">
     <button class="ctab rt on" onclick="selCat(this,'all')"><span class="ctab-ico">🏠</span><span data-i18n="nav.all">Все</span></button>
     <button class="ctab" onclick="openFavoritesView()"><span class="ctab-ico">❤️</span><span data-i18n="nav.favorites">Избранное</span></button>
-    <button class="ctab rt" onclick="selCat(this,'rent')"><span class="ctab-ico">🔵</span><span data-i18n="nav.rent">Аренда</span></button>
-    <button class="ctab st" onclick="selCat(this,'sale')"><span class="ctab-ico">🟠</span><span data-i18n="nav.sale">Продажа</span></button>
+    <div class="sdd" style="position:relative;display:inline-block">
+      <button class="ctab rt" onclick="event.stopPropagation();toggleDealDropdown('rent')"><span class="ctab-ico">🔵</span><span data-i18n="nav.rent">Аренда</span> ▾</button>
+      <div class="smn" id="dealMenu-rent" style="min-width:190px">
+        <div class="smi" onclick="pickDealType('rent',null)" data-i18n="nav.allTypes">Все типы</div>
+        <div class="smi" onclick="pickDealType('rent','apartment')">🏢 <span data-i18n="type.apartment">Квартиры</span></div>
+        <div class="smi" onclick="pickDealType('rent','house')">🏡 <span data-i18n="type.house">Дома и виллы</span></div>
+        <div class="smi" onclick="pickDealType('rent','commercial')">🏬 <span data-i18n="type.commercial">Коммерция</span></div>
+      </div>
+    </div>
+    <div class="sdd" style="position:relative;display:inline-block">
+      <button class="ctab st" onclick="event.stopPropagation();toggleDealDropdown('sale')"><span class="ctab-ico">🟠</span><span data-i18n="nav.sale">Продажа</span> ▾</button>
+      <div class="smn" id="dealMenu-sale" style="min-width:190px">
+        <div class="smi" onclick="pickDealType('sale',null)" data-i18n="nav.allTypes">Все типы</div>
+        <div class="smi" onclick="pickDealType('sale','apartment')">🏢 <span data-i18n="type.apartment">Квартиры</span></div>
+        <div class="smi" onclick="pickDealType('sale','house')">🏡 <span data-i18n="type.house">Дома и виллы</span></div>
+        <div class="smi" onclick="pickDealType('sale','commercial')">🏬 <span data-i18n="type.commercial">Коммерция</span></div>
+      </div>
+    </div>
     <div class="sep"></div>
   </div>
   <div class="nav-right">
@@ -2012,8 +2028,8 @@ const listings=[
     const sqm=Math.floor(35+Math.random()*150);const fl=Math.floor(1+Math.random()*13);
     const st=streets[Math.floor(Math.random()*streets.length)];const num=Math.floor(2+Math.random()*180);
     const pnum=dt==='rent'?Math.floor(3000+Math.random()*9000):Math.floor(900000+Math.random()*2500000);
-    const tg=randomTags();const ag=ags[Math.floor(Math.random()*ags.length)];const conds=['new','renovated','cosmetic','needs_repair'];const cond=conds[Math.floor(Math.random()*conds.length)];const furns=['full','partial','none'];const furn=furns[Math.floor(Math.random()*furns.length)];const petsOpts=['yes','no','small_dog','small_cat'];const pets=petsOpts[Math.floor(Math.random()*petsOpts.length)];
-    listings.push({id:b+k+1,dealType:dt,thumb:grads[Math.floor(Math.random()*grads.length)],icon:icons[Math.floor(Math.random()*icons.length)],priceNum:pnum,addr:{ru:st.ru+' '+num+', '+c.ru,he:st.he+' '+num+', '+c.he,en:st.en+' '+num+', '+c.en},rooms,sqm,floor:fl+'/'+(fl+Math.floor(1+Math.random()*12)),tags:tg,condition:cond,furnished:furn,petsPolicy:pets,hi:[0],desc:{ru:'Уютная квартира в '+c.ru+'.',he:'דירה נחמדה ב'+c.he+'.',en:'Cozy apt in '+c.en+'.'},agent:ag,badge:Math.random()<.08?'new':null,lat:c.lat+(Math.random()-.5)*.03,lng:c.lng+(Math.random()-.5)*.03});
+    const tg=randomTags();const ag=ags[Math.floor(Math.random()*ags.length)];const conds=['new','renovated','cosmetic','needs_repair'];const cond=conds[Math.floor(Math.random()*conds.length)];const furns=['full','partial','none'];const furn=furns[Math.floor(Math.random()*furns.length)];const petsOpts=['yes','no','small_dog','small_cat'];const pets=petsOpts[Math.floor(Math.random()*petsOpts.length)];const ptypes=['apartment','apartment','apartment','house','commercial'];const ptype=ptypes[Math.floor(Math.random()*ptypes.length)];
+    listings.push({id:b+k+1,dealType:dt,thumb:grads[Math.floor(Math.random()*grads.length)],icon:icons[Math.floor(Math.random()*icons.length)],priceNum:pnum,addr:{ru:st.ru+' '+num+', '+c.ru,he:st.he+' '+num+', '+c.he,en:st.en+' '+num+', '+c.en},rooms,sqm,floor:fl+'/'+(fl+Math.floor(1+Math.random()*12)),tags:tg,condition:cond,furnished:furn,petsPolicy:pets,propertyType:ptype,hi:[0],desc:{ru:'Уютная квартира в '+c.ru+'.',he:'דירה נחמדה ב'+c.he+'.',en:'Cozy apt in '+c.en+'.'},agent:ag,badge:Math.random()<.08?'new':null,lat:c.lat+(Math.random()-.5)*.03,lng:c.lng+(Math.random()-.5)*.03});
   }
 })();
 // ═══ ДЕМО-ФОТО (Unsplash, свободная лицензия) ═══
@@ -2047,7 +2063,17 @@ const listings=[
 })();
 
 // ═══ STATE ═══
-let lang='ru',activeCat='all',activeIdx=-1,loggedIn=false,selectedRole='user',authMode='login';
+let lang='ru',activeCat='all',activeIdx=-1,loggedIn=false,selectedRole='user',authMode='login',activePropertyType=null;
+function toggleDealDropdown(kind){
+  document.querySelectorAll('.smn').forEach(m=>{if(m.id!=='dealMenu-'+kind)m.classList.remove('open')});
+  document.getElementById('dealMenu-'+kind).classList.toggle('open');
+}
+function pickDealType(kind, ptype){
+  document.getElementById('dealMenu-'+kind).classList.remove('open');
+  const btn=document.querySelector(kind==='rent'?'.ctab.rt':'.ctab.st');
+  activePropertyType=ptype;
+  selCat(btn, kind);
+}
 let tierPrice=950,tierCredits=10,map=null,mapLoaded=false,satelliteOn=false;
 let cmpList=[],promoTargetIdx=-1,filteredListings=[...listings],currentSort='rel';
 let dzFiles=[],markersArr=[],userCredits=0,addrTimer=null;
@@ -2534,6 +2560,7 @@ function getFiltered(){
     x.addr.he.toLowerCase().includes(q)||
     x.addr.en.toLowerCase().includes(q)
   );
+  if(activePropertyType)d=d.filter(x=>x.propertyType===activePropertyType);
   if(activeType==='rent')d=d.filter(x=>x.dealType==='rent');
   else if(activeType==='sale')d=d.filter(x=>x.dealType==='sale');
   else if(['rent-apt','rent-villa'].includes(activeCat))d=d.filter(x=>x.dealType==='rent');
@@ -3012,7 +3039,7 @@ const I18N={
     'filter.rooms12':'1–2 комн.','filter.rooms34':'3–4 комн.',
     'filter.saferoom':'Безоп. комн.','filter.parking':'Парковка',
     'filter.balcony':'Балкон','filter.garden':'Сад','filter.sea':'Море 🌊','filter.new':'Новые',
-    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать','search.save':'Сохранить поиск','cab.searches':'Поиски','search.filtersWord':'фильтра','search.default_name':'Мой поиск','search.saved':'Поиск сохранён','search.empty':'Пока нет сохранённых поисков','search.applied':'Поиск применён','search.hint':'смотри в кабинете → 🔍 Поиски','search.modalTitle':'Готово, поиск в кармане','search.modalDesc':'Вернуться к нему можно в любой момент — кабинет → 🔍 Поиски','search.goToSearches':'Перейти к поискам','nav.favorites':'Избранное','fav.default':'Себе','fav.new':'Новая подборка','fav.prompt':'Название подборки','fav.create':'Создать','fav.exit':'Показать все','filter.conditionTitle':'Состояние','filter.furnishedTitle':'Мебель','filter.petsTitle':'Можно ли с животными','pets.yes':'Да','pets.no':'Нет','pets.smallDog':'Маленькая собачка','pets.smallCat':'Маленький котик','cond.new':'Новый','cond.renovated':'Свежий ремонт','cond.cosmetic':'Косметический','cond.needsRepair':'Без ремонта','furn.full':'С мебелью','furn.partial':'Частично','furn.none':'Без мебели',
+    'filter.owner':'От собственника','filter.agency':'От агентства','filter.elevator':'Лифт','filter.ac':'Кондиционер','filter.furnished':'Мебель','filter.pets':'Можно с животными','filter.label':'Фильтры','filter.title':'Фильтры','filter.roomsTitle':'Комнаты','filter.sellerTitle':'Тип продавца','filter.amenitiesTitle':'Удобства','filter.reset':'Сбросить','filter.apply':'Показать','search.save':'Сохранить поиск','cab.searches':'Поиски','search.filtersWord':'фильтра','search.default_name':'Мой поиск','search.saved':'Поиск сохранён','search.empty':'Пока нет сохранённых поисков','search.applied':'Поиск применён','search.hint':'смотри в кабинете → 🔍 Поиски','search.modalTitle':'Готово, поиск в кармане','search.modalDesc':'Вернуться к нему можно в любой момент — кабинет → 🔍 Поиски','search.goToSearches':'Перейти к поискам','nav.allTypes':'Все типы','type.apartment':'Квартиры','type.house':'Дома и виллы','type.commercial':'Коммерция','nav.favorites':'Избранное','fav.default':'Себе','fav.new':'Новая подборка','fav.prompt':'Название подборки','fav.create':'Создать','fav.exit':'Показать все','filter.conditionTitle':'Состояние','filter.furnishedTitle':'Мебель','filter.petsTitle':'Можно ли с животными','pets.yes':'Да','pets.no':'Нет','pets.smallDog':'Маленькая собачка','pets.smallCat':'Маленький котик','cond.new':'Новый','cond.renovated':'Свежий ремонт','cond.cosmetic':'Косметический','cond.needsRepair':'Без ремонта','furn.full':'С мебелью','furn.partial':'Частично','furn.none':'Без мебели',
     'sort.label':'Релевантность','sort.rel':'🎯 Релевантность',
     'sort.price_asc':'💰 Цена ↑','sort.price_desc':'💰 Цена ↓','sort.new':'🆕 Сначала новые',
     'count':'Найдено','count_obj':'объектов',
@@ -3142,7 +3169,7 @@ const I18N={
     'filter.rooms12':'1–2 rooms','filter.rooms34':'3–4 rooms',
     'filter.saferoom':'Safe room','filter.parking':'Parking',
     'filter.balcony':'Balcony','filter.garden':'Garden','filter.sea':'Sea 🌊','filter.new':'New',
-    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show','search.save':'Save search','cab.searches':'Searches','search.filtersWord':'filters','search.default_name':'My search','search.saved':'Search saved','search.empty':'No saved searches yet','search.applied':'Search applied','search.hint':'find it in your cabinet → 🔍 Searches','search.modalTitle':'Search saved','search.modalDesc':'Come back to it anytime — cabinet → 🔍 Searches','search.goToSearches':'Go to searches','nav.favorites':'Favorites','fav.default':'Saved','fav.new':'New list','fav.prompt':'List name','fav.create':'Create','fav.exit':'Show all','filter.conditionTitle':'Condition','filter.furnishedTitle':'Furnishing','filter.petsTitle':'Pets allowed','pets.yes':'Yes','pets.no':'No','pets.smallDog':'Small dog','pets.smallCat':'Small cat','cond.new':'New','cond.renovated':'Renovated','cond.cosmetic':'Cosmetic','cond.needsRepair':'Needs repair','furn.full':'Furnished','furn.partial':'Partially furnished','furn.none':'Unfurnished',
+    'filter.owner':'From owner','filter.agency':'From agency','filter.elevator':'Elevator','filter.ac':'A/C','filter.furnished':'Furnished','filter.pets':'Pets allowed','filter.label':'Filters','filter.title':'Filters','filter.roomsTitle':'Rooms','filter.sellerTitle':'Seller type','filter.amenitiesTitle':'Amenities','filter.reset':'Reset','filter.apply':'Show','search.save':'Save search','cab.searches':'Searches','search.filtersWord':'filters','search.default_name':'My search','search.saved':'Search saved','search.empty':'No saved searches yet','search.applied':'Search applied','search.hint':'find it in your cabinet → 🔍 Searches','search.modalTitle':'Search saved','search.modalDesc':'Come back to it anytime — cabinet → 🔍 Searches','search.goToSearches':'Go to searches','nav.allTypes':'All types','type.apartment':'Apartments','type.house':'Houses and villas','type.commercial':'Commercial','nav.favorites':'Favorites','fav.default':'Saved','fav.new':'New list','fav.prompt':'List name','fav.create':'Create','fav.exit':'Show all','filter.conditionTitle':'Condition','filter.furnishedTitle':'Furnishing','filter.petsTitle':'Pets allowed','pets.yes':'Yes','pets.no':'No','pets.smallDog':'Small dog','pets.smallCat':'Small cat','cond.new':'New','cond.renovated':'Renovated','cond.cosmetic':'Cosmetic','cond.needsRepair':'Needs repair','furn.full':'Furnished','furn.partial':'Partially furnished','furn.none':'Unfurnished',
     'sort.label':'Relevance','sort.rel':'🎯 Relevance',
     'sort.price_asc':'💰 Price ↑','sort.price_desc':'💰 Price ↓','sort.new':'🆕 Newest first',
     'count':'Found','count_obj':'listings',
@@ -3270,7 +3297,7 @@ const I18N={
     'filter.rooms12':'1–2 חד\'','filter.rooms34':'3–4 חד\'',
     'filter.saferoom':'ממ"ד','filter.parking':'חניה',
     'filter.balcony':'מרפסת','filter.garden':'גינה','filter.sea':'ים 🌊','filter.new':'חדש',
-    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג','search.save':'שמור חיפוש','cab.searches':'חיפושים','search.filtersWord':'סינונים','search.default_name':'החיפוש שלי','search.saved':'החיפוש נשמר','search.empty':'אין עדיין חיפושים שמורים','search.applied':'החיפוש הופעל','search.hint':'תמצא אותו בפרופיל → 🔍 חיפושים','search.modalTitle':'החיפוש נשמר','search.modalDesc':'תוכל לחזור אליו בכל עת — פרופיל → 🔍 חיפושים','search.goToSearches':'עבור לחיפושים','nav.favorites':'מועדפים','fav.default':'שלי','fav.new':'רשימה חדשה','fav.prompt':'שם הרשימה','fav.create':'צור','fav.exit':'הצג הכל','filter.conditionTitle':'מצב','filter.furnishedTitle':'ריהוט','filter.petsTitle':'בעלי חיים','pets.yes':'כן','pets.no':'לא','pets.smallDog':'כלב קטן','pets.smallCat':'חתול קטן','cond.new':'חדש','cond.renovated':'משופץ','cond.cosmetic':'קוסמטי','cond.needsRepair':'דורש שיפוץ','furn.full':'מרוהטת','furn.partial':'מרוהטת חלקית','furn.none':'לא מרוהטת',
+    'filter.owner':'מבעל הבית','filter.agency':'מסוכנות','filter.elevator':'מעלית','filter.ac':'מזגן','filter.furnished':'מרוהטת','filter.pets':'מותר בעלי חיים','filter.label':'סינון','filter.title':'סינון','filter.roomsTitle':'חדרים','filter.sellerTitle':'סוג המוכר','filter.amenitiesTitle':'מאפיינים','filter.reset':'איפוס','filter.apply':'הצג','search.save':'שמור חיפוש','cab.searches':'חיפושים','search.filtersWord':'סינונים','search.default_name':'החיפוש שלי','search.saved':'החיפוש נשמר','search.empty':'אין עדיין חיפושים שמורים','search.applied':'החיפוש הופעל','search.hint':'תמצא אותו בפרופיל → 🔍 חיפושים','search.modalTitle':'החיפוש נשמר','search.modalDesc':'תוכל לחזור אליו בכל עת — פרופיל → 🔍 חיפושים','search.goToSearches':'עבור לחיפושים','nav.allTypes':'כל הסוגים','type.apartment':'דירות','type.house':'בתים ופרטיות','type.commercial':'מסחרי','nav.favorites':'מועדפים','fav.default':'שלי','fav.new':'רשימה חדשה','fav.prompt':'שם הרשימה','fav.create':'צור','fav.exit':'הצג הכל','filter.conditionTitle':'מצב','filter.furnishedTitle':'ריהוט','filter.petsTitle':'בעלי חיים','pets.yes':'כן','pets.no':'לא','pets.smallDog':'כלב קטן','pets.smallCat':'חתול קטן','cond.new':'חדש','cond.renovated':'משופץ','cond.cosmetic':'קוסמטי','cond.needsRepair':'דורש שיפוץ','furn.full':'מרוהטת','furn.partial':'מרוהטת חלקית','furn.none':'לא מרוהטת',
     'sort.label':'רלוונטיות','sort.rel':'🎯 רלוונטיות',
     'sort.price_asc':'💰 מחיר ↑','sort.price_desc':'💰 מחיר ↓','sort.new':'🆕 החדשים קודם',
     'count':'נמצאו','count_obj':'מודעות',
@@ -3897,7 +3924,7 @@ function updateMapLang(l){if(!map)return;try{var ml=l==='he'?'he':l==='en'?'en':
 let _tt;
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2800)}
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.sdd')){document.getElementById('smn')?.classList.remove('open');document.getElementById('fmn')?.classList.remove('open');}
+  if(!e.target.closest('.sdd')){document.getElementById('smn')?.classList.remove('open');document.getElementById('fmn')?.classList.remove('open');document.getElementById('dealMenu-rent')?.classList.remove('open');document.getElementById('dealMenu-sale')?.classList.remove('open');}
   if(!e.target.closest('.aw'))document.getElementById('addrSugg')?.classList.add('hid');
 });
 
