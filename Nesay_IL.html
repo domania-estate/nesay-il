@@ -2429,9 +2429,10 @@ function toggleFCheck(el){
 }
 let panelRooms=new Set(), panelSeller=null, panelAmenities=new Set(), panelCondition=null, panelFurnished=null, panelPets=null;
 function paintToggle(el,on){
-  el.style.background=on?'#eef2ff':'#fff';
+  el.style.background=on?'#3167F1':'#fff';
   el.style.borderColor=on?'#3167F1':'#ddd';
-  el.style.color=on?'#3167F1':'#000';
+  el.style.color=on?'#fff':'#000';
+  el.style.fontWeight=on?'700':'400';
 }
 function toggleRoom(el){
   const r=el.dataset.rooms;
