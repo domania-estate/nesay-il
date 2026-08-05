@@ -2591,6 +2591,8 @@ function applyFilter(){
   if(typeof M!=='undefined'&&M.renderCards)M.renderCards();
   const mlbl=document.getElementById('mFilterLbl');
   if(mlbl){const n=activeFilters.size;mlbl.textContent=n>0?(t('filter.label')+' ('+n+')'):t('filter.label');}
+  const mlbl2=document.getElementById('mFilterLbl2');
+  if(mlbl2){const n2=activeFilters.size;mlbl2.textContent=n2>0?(t('filter.label')+' ('+n2+')'):t('filter.label');}
 }
 
 let favLists=[], favItems=[], activeFavList=null, inFavoritesView=false;
@@ -4207,6 +4209,7 @@ tryAutoLogin();
 <div id="M-list-wrap">
   <div class="M-list-head">
     <span class="M-cnt-lbl" id="M-cnt">Загрузка...</span>
+    <span class="M-sort-btn" onclick="openFilterPanel()">🔧 <span id="mFilterLbl2">Фильтры</span></span>
     <span class="M-sort-btn" onclick="M.cycleSort()">
       <span id="M-sort-ico">🎯</span>
       <span id="M-sort-txt">Релевантность</span> ▾
