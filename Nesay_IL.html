@@ -248,7 +248,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .bco:hover{background:var(--c);color:#fff}
 
 /* ════ OVERLAYS ════ */
-.ovl{position:fixed;inset:0;background:rgba(10,10,15,.55);z-index:500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:16px}
+.ovl{position:fixed;inset:0;background:rgba(10,10,15,.55);z-index:9999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:16px}
 .ovl.open{display:flex}
 .mx{width:30px;height:30px;border-radius:8px;border:none;background:var(--bg);cursor:pointer;font-size:16px;color:var(--ink3);display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
 .mx:hover{background:var(--line);color:var(--ink)}
@@ -4208,7 +4208,7 @@ tryAutoLogin();
 <div id="M-list-wrap">
   <div class="M-list-head">
     <span class="M-cnt-lbl" id="M-cnt">Загрузка...</span>
-    <button type="button" class="M-sort-btn" style="border:none" onclick="alert(document.getElementById(&#39;filterOvl&#39;)?&#39;el found&#39;:&#39;el MISSING&#39;);try{openFilterPanel();alert(&#39;opened ok, display=&#39;+document.getElementById(&#39;filterOvl&#39;).style.display)}catch(e){alert(&#39;ERROR: &#39;+e.message)}">🔧 <span id="mFilterLbl2">Фильтры</span></button>
+    <button type="button" class="M-sort-btn" style="border:none" onclick="openFilterPanel()">🔧 <span id="mFilterLbl2">Фильтры</span></button>
     <span class="M-sort-btn" onclick="M.cycleSort()">
       <span id="M-sort-ico">🎯</span>
       <span id="M-sort-txt">Релевантность</span> ▾
