@@ -4434,8 +4434,21 @@ function onAuth(user) {
 }
 
 // ── INIT ───────────────────────────────────────────
+async function syncFavIds(){
+  const token=localStorage.getItem('nesay_token');
+  if(!token)return;
+  try{
+    const res=await fetch(`${API}/listings/favorites/mine`,{headers:{Authorization:'Bearer '+token}});
+    const rows=await res.json();
+    rows.forEach(function(r){favIds.add(String(r.listing_id))});
+    const dot=document.getElementById('M-fav-dot');
+    if(dot){dot.style.display=favIds.size>0?'flex':'none';dot.textContent=favIds.size;}
+    renderCards();
+  }catch(e){}
+}
 function init() {
   tab('map');
+  syncFavIds();
   // sync lang buttons
   document.querySelectorAll('.M-lang-sw .lb').forEach(function(b) {
     var txt = b.textContent.trim();
