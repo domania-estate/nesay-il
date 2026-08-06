@@ -3411,8 +3411,8 @@ async function doAuth(){
   if(email && !email.includes('@')) email = email + '@nesay.il';
   const pass=document.querySelector('#authS1 input[type="password"]')?.value;
   const name=document.getElementById('authName')?.value?.trim();
-  if(!email){showToast(t('err.email'));return}
-  if(!pass||pass.length<8){showToast(t('err.pass'));return}
+  if(!email){const em=document.getElementById('authErr');if(em){em.textContent=t('err.email');em.style.display='block';}return}
+  if(!pass||pass.length<8){const em=document.getElementById('authErr');if(em){em.textContent=t('err.pass');em.style.display='block';}return}
   const btn=document.getElementById('authBtn');
   btn.textContent='...';btn.disabled=true;showLoader();
   try{
