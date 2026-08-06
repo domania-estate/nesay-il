@@ -4467,6 +4467,8 @@ async function syncFavIds(){
 function init() {
   tab('map');
   syncFavIds();
+  var _cmpOvl=document.getElementById('cmpOvl');if(_cmpOvl){_cmpOvl.style.display='none';_cmpOvl.style.setProperty('display','none','important');}
+  var _cmpBar=document.getElementById('cmpBar');if(_cmpBar){_cmpBar.style.display='none';_cmpBar.style.setProperty('display','none','important');}
   // sync lang buttons
   document.querySelectorAll('.M-lang-sw .lb').forEach(function(b) {
     var txt = b.textContent.trim();
