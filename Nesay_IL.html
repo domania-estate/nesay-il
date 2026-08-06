@@ -2478,6 +2478,21 @@ function openDealTypeModal(kind){
 function closeDealTypeModal(){
   document.getElementById('dealTypeOvl').style.display='none';
 }
+function showMobileFavPopup(){
+  if(localStorage.getItem('nesay_hide_fav_popup')==='1')return;
+  document.getElementById('mobileFavOvl').style.display='flex';
+}
+function closeMobileFavPopup(){
+  document.getElementById('mobileFavOvl').style.display='none';
+}
+function goToMobileFavorites(){
+  closeMobileFavPopup();
+  if(window.M&&M.tab)M.tab('fav');
+}
+function dontShowFavPopup(){
+  localStorage.setItem('nesay_hide_fav_popup','1');
+  closeMobileFavPopup();
+}
 function toggleCondition(el){
   const c=el.dataset.cond;
   document.querySelectorAll('.fcond').forEach(b=>paintToggle(b,false));
@@ -4330,6 +4345,7 @@ function toggleFav(btn, idx) {
     favIds.add(id);
     btn.textContent = '❤️';
     btn.classList.add('on');
+    showMobileFavPopup();
   }
   // Update badge
   const dot = document.getElementById('M-fav-dot');
@@ -4755,6 +4771,15 @@ function copyRefLink(){
       <span onclick="closeDealTypeModal()" style="cursor:pointer;font-size:18px">✕</span>
     </div>
     <div id="dealTypeContent"></div>
+  </div>
+</div>
+<div class="ovl" id="mobileFavOvl" onclick="if(event.target===this)closeMobileFavPopup()" style="align-items:flex-end">
+  <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px 20px;max-width:480px;width:100%;text-align:center">
+    <div style="width:56px;height:56px;border-radius:50%;background:#FEE2E2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:26px">❤️</div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:8px">Добавлено в избранное</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;line-height:1.5">Вы сохранили это объявление. Найти его можно в разделе «Избранное».</div>
+    <button onclick="goToMobileFavorites()" style="width:100%;padding:13px;border-radius:12px;border:none;background:#3167F1;color:#fff;font-weight:700;font-size:14px;margin-bottom:10px">Перейти в избранное</button>
+    <button onclick="dontShowFavPopup()" style="width:100%;padding:13px;border-radius:12px;border:none;background:none;color:#888;font-weight:600;font-size:13px">Больше не показывать</button>
   </div>
 </div>
 </body>
