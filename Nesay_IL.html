@@ -1578,6 +1578,22 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
           <span class="fselect-arrow">▾</span>
         </div>
       </div>
+      <div class="fgrp-row" style="margin-bottom:16px">
+        <div class="fgrp">
+          <select class="fselect" id="pubFurn">
+            <option value="">— Мебель —</option><option value="full">Полностью меблирована</option><option value="partial">Частично меблирована</option><option value="none">Без мебели</option>
+          </select>
+          <label class="flabel">Мебель</label>
+          <span class="fselect-arrow">▾</span>
+        </div>
+        <div class="fgrp">
+          <select class="fselect" id="pubPets">
+            <option value="">— Животные —</option><option value="yes">Можно с животными</option><option value="no">Нельзя</option><option value="small_dog">Только мелкие собаки</option><option value="small_cat">Только кошки</option>
+          </select>
+          <label class="flabel">Животные</label>
+          <span class="fselect-arrow">▾</span>
+        </div>
+      </div>
 
       <div class="pw" id="priceWarn" data-i18n="pub.price_warn">⚠️ Цена ниже рыночной — потребуется модерация.</div>
 
@@ -2930,6 +2946,12 @@ async function _publish(){
   const rooms=parseFloat(document.getElementById('pubRooms')?.value)||1;
   const sqm=parseFloat(document.getElementById('pubSqm')?.value)||null;
   const floor=document.getElementById('pubFloor')?.value||null;
+  const objTypeMap={'Квартира':'apartment','Дом / Вилла':'house','Пентхаус':'apartment','Студия':'apartment','Коммерческая':'commercial'};
+  const objTypeRaw=document.getElementById('pubObjType')?.value||'Квартира';
+  const propertyType=objTypeMap[objTypeRaw]||'apartment';
+  const condition=document.getElementById('pubReno')?.value||null;
+  const furnished=document.getElementById('pubFurn')?.value||null;
+  const petsAllowed=document.getElementById('pubPets')?.value||null;
   const dealType=document.getElementById('pubDeal')?.value||'rent';
   const desc=document.getElementById('pubDesc')?.value||'';
   const isR=dealType==='rent';
@@ -2952,11 +2974,12 @@ async function _publish(){
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
         body:JSON.stringify({
           deal_type:dealType,
-          property_type:'apartment',
+          property_type:propertyType,
           city_id:getCityId(cityName),
           street,house_number:house,
           lat,lng,price,rooms,sqm,
-          description:{ru:desc,he:desc,en:desc}
+          description:{ru:desc,he:desc,en:desc},
+          condition,furnished,pets_allowed:petsAllowed
         })
       });
       if(res.ok){
