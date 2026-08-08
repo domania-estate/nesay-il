@@ -105,7 +105,7 @@ async function verifyPrice(cityId, dealType, price, rooms) {
 
 // Создать объявление
 router.post('/', requireAuth, async (req, res) => {
-  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description } = req.body;
+  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description, condition, furnished, pets_allowed, seller_type } = req.body;
   if (!deal_type || !price) return res.status(400).json({ error: 'Укажите тип сделки и цену' });
   if (req.user.role === 'buyer') return res.status(403).json({ error: 'Покупатели не могут публиковать' });
 
@@ -127,8 +127,8 @@ router.post('/', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(`
-        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
         RETURNING *
       `, [
         req.user.id, parseInt(city_id) || 1, deal_type, property_type || 'apartment',
@@ -137,7 +137,8 @@ router.post('/', requireAuth, async (req, res) => {
         parseInt(price), parseFloat(rooms) || 1,
         sqm ? parseInt(sqm) : null,
         JSON.stringify(description || {}),
-        status, moderationReason
+        status, moderationReason,
+        condition || null, furnished || null, pets_allowed || null, seller_type || null
       ]);
       // Снимаем 100 шекелей за публикацию
       await client.query('UPDATE users SET credits = credits - 100 WHERE id = $1', [req.user.id]);
