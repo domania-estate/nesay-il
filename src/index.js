@@ -19,7 +19,6 @@ app.use(express.static(path.join(__dirname, '..')));
 app.use('/api/auth',     require('./routes/auth'));
 app.use('/api/listings', require('./routes/listings'));
 app.use('/api/seed', require('./routes/seed'));
-app.use('/api/seed', require('./routes/seed'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/admin',    require('./routes/admin'));
