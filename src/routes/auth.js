@@ -185,7 +185,7 @@ router.post('/login', [
 
   try {
     const result = await db.query(
-      'SELECT id, email, name, role, credits, verified, blocked, password_hash FROM users WHERE email = $1',
+      'SELECT id, email, name, role, credits, verified, blocked, password_hash, short_id FROM users WHERE email = $1',
       [email]
     );
 
@@ -212,7 +212,7 @@ router.get('/me', requireAuth, async (req, res) => {
   try {
     console.log('ME: looking up user id:', req.user.id);
     const result = await db.query(
-      'SELECT id, email, name, surname, phone, role, credits, verified, is_moderator, agency_data, client_data, owner_data, avatar_url, birth_date FROM users WHERE id = $1',
+      'SELECT id, email, name, surname, phone, role, credits, verified, is_moderator, agency_data, client_data, owner_data, avatar_url, birth_date, short_id FROM users WHERE id = $1',
       [req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
