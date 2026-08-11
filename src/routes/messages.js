@@ -10,7 +10,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
       SELECT c.id, c.listing_id, c.buyer_id, c.seller_id, c.created_at,
         CASE WHEN c.buyer_id = $1 THEN c.seller_id ELSE c.buyer_id END AS other_user_id,
         ou.name AS other_user_name, ou.avatar_url AS other_user_avatar,
-        l.address AS listing_address, l.price AS listing_price, l.deal_type AS listing_deal_type,
+        (l.street || CASE WHEN l.house_number IS NOT NULL THEN ' ' || l.house_number ELSE '' END) AS listing_address, l.price AS listing_price, l.deal_type AS listing_deal_type,
         (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS listing_photo,
         (SELECT text FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
@@ -137,12 +137,12 @@ router.get('/folders', requireAuth, async (req, res) => {
 
 // Создать папку
 router.post('/folders', requireAuth, async (req, res) => {
-  const { name } = req.body;
+  const { name, color } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Укажите название папки' });
   try {
     const result = await db.query(
-      'INSERT INTO chat_folders (user_id, name) VALUES ($1, $2) RETURNING *',
-      [req.user.id, name.trim()]
+      'INSERT INTO chat_folders (user_id, name, color) VALUES ($1, $2, $3) RETURNING *',
+      [req.user.id, name.trim(), color || '#1C6EF2']
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -153,12 +153,12 @@ router.post('/folders', requireAuth, async (req, res) => {
 
 // Переименовать папку
 router.put('/folders/:id', requireAuth, async (req, res) => {
-  const { name } = req.body;
+  const { name, color } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Укажите название папки' });
   try {
     const result = await db.query(
-      'UPDATE chat_folders SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
-      [name.trim(), req.params.id, req.user.id]
+      'UPDATE chat_folders SET name = $1, color = COALESCE($4, color) WHERE id = $2 AND user_id = $3 RETURNING *',
+      [name.trim(), req.params.id, req.user.id, color || null]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Папка не найдена' });
     res.json(result.rows[0]);

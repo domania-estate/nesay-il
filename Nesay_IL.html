@@ -3682,28 +3682,76 @@ function renderFolderTabs(){
   let html='<button onclick="switchFolder(null)" style="flex-shrink:0;padding:6px 14px;border-radius:16px;border:1px solid var(--line);background:'+(window.activeFolderId===null?'var(--c)':'#fff')+';color:'+(window.activeFolderId===null?'#fff':'var(--ink)')+';font-size:12px;font-weight:700;cursor:pointer">Все</button>';
   window.chatFolders.forEach(f=>{
     const on=window.activeFolderId===f.id;
-    html+='<button onclick="switchFolder(\''+f.id+'\')" ondblclick="renameFolder(\''+f.id+'\')" style="flex-shrink:0;padding:6px 14px;border-radius:16px;border:1px solid var(--line);background:'+(on?'var(--c)':'#fff')+';color:'+(on?'#fff':'var(--ink)')+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'+f.name+'</button>';
+    const dotColor=f.color||'#1C6EF2';
+    html+='<button onclick="switchFolder(\''+f.id+'\')" ondblclick="renameFolder(\''+f.id+'\')" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:16px;border:1px solid var(--line);background:'+(on?'var(--c)':'#fff')+';color:'+(on?'#fff':'var(--ink)')+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';display:inline-block;flex-shrink:0"></span>'+f.name+'</button>';
   });
   html+='<button onclick="createFolder()" style="flex-shrink:0;padding:6px 12px;border-radius:16px;border:1px dashed var(--line);background:#fff;color:var(--ink3);font-size:12px;font-weight:700;cursor:pointer">+ Папка</button>';
   wrap.innerHTML=html;
 }
-async function createFolder(){
-  const name=prompt('Название новой папки:');
-  if(!name||!name.trim())return;
+const FOLDER_COLORS=['#1C6EF2','#F59E0B','#D85A30','#1D9E75','#7F77DD'];
+window._folderModalMode='create';
+window._folderModalId=null;
+window._folderSelectedColor=FOLDER_COLORS[0];
+function renderColorRow(){
+  const row=document.getElementById('folderColorRow');if(!row)return;
+  row.innerHTML=FOLDER_COLORS.map(c=>{
+    const on=window._folderSelectedColor===c;
+    return `<span onclick="window._folderSelectedColor='${c}';renderColorRow()" style="width:26px;height:26px;border-radius:50%;background:${c};cursor:pointer;display:inline-block;border:${on?'2px solid '+c+';box-shadow:0 0 0 2px #fff, 0 0 0 4px '+c:'2px solid transparent'}"></span>`;
+  }).join('');
+}
+function createFolder(){
+  window._folderModalMode='create';window._folderModalId=null;
+  document.getElementById('folderInputTitle').textContent='Новая папка';
+  document.getElementById('folderInputField').value='';
+  document.getElementById('folderSaveBtn').textContent='Создать';
+  document.getElementById('folderDeleteBtn').style.display='none';
+  window._folderSelectedColor=FOLDER_COLORS[0];
+  renderColorRow();
+  document.getElementById('folderInputOvl').classList.add('open');
+  setTimeout(()=>document.getElementById('folderInputField').focus(),50);
+}
+function renameFolder(folderId){
+  const f=window.chatFolders.find(x=>x.id===folderId);if(!f)return;
+  window._folderModalMode='rename';window._folderModalId=folderId;
+  document.getElementById('folderInputTitle').textContent='Переименовать папку';
+  document.getElementById('folderInputField').value=f.name;
+  document.getElementById('folderSaveBtn').textContent='Сохранить';
+  document.getElementById('folderDeleteBtn').style.display='block';
+  window._folderSelectedColor=f.color||FOLDER_COLORS[0];
+  renderColorRow();
+  document.getElementById('folderInputOvl').classList.add('open');
+  setTimeout(()=>document.getElementById('folderInputField').focus(),50);
+}
+async function deleteFolderConfirm(){
+  if(!window._folderModalId)return;
+  if(!confirm('Удалить эту папку? Чаты из неё не удалятся, просто станут без папки.'))return;
   const token=localStorage.getItem('nesay_token');
   try{
-    const res=await fetch(`${API}/messages/folders`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({name:name.trim()})});
-    if(res.ok){await loadFolders();renderFolderTabs()}
+    await fetch(`${API}/messages/folders/${window._folderModalId}`,{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+    closeFolderInput();
+    if(window.activeFolderId===window._folderModalId)window.activeFolderId=null;
+    await loadFolders();
+    await loadConversationsList();
+    renderFolderTabs();
+    renderChatList();
+    showToast('Папка удалена');
   }catch(e){showToast('Ошибка')}
 }
-async function renameFolder(folderId){
-  const f=window.chatFolders.find(x=>x.id===folderId);if(!f)return;
-  const name=prompt('Новое название папки:',f.name);
-  if(!name||!name.trim())return;
+function closeFolderInput(){document.getElementById('folderInputOvl').classList.remove('open')}
+async function confirmFolderInput(){
+  const name=document.getElementById('folderInputField').value.trim();
+  if(!name){showToast('Введите название');return}
   const token=localStorage.getItem('nesay_token');
+  const color=window._folderSelectedColor;
   try{
-    const res=await fetch(`${API}/messages/folders/${folderId}`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({name:name.trim()})});
-    if(res.ok){await loadFolders();renderFolderTabs()}
+    if(window._folderModalMode==='create'){
+      await fetch(`${API}/messages/folders`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({name,color})});
+    }else{
+      await fetch(`${API}/messages/folders/${window._folderModalId}`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({name,color})});
+    }
+    closeFolderInput();
+    await loadFolders();
+    renderFolderTabs();
   }catch(e){showToast('Ошибка')}
 }
 function switchFolder(folderId){
@@ -3739,16 +3787,23 @@ function renderChatList(){
     </div>`;
   }).join('');
 }
-async function moveToFolderPrompt(convId){
-  const names=['Убрать из папок',...window.chatFolders.map(f=>f.name)];
-  const choice=prompt('В какую папку переместить чат?\n\n'+names.map((n,i)=>i+': '+n).join('\n')+'\n\nВведите номер:');
-  if(choice===null)return;
-  const idx=parseInt(choice);
-  if(isNaN(idx)||idx<0||idx>=names.length)return;
-  const folderId=idx===0?null:window.chatFolders[idx-1].id;
+function moveToFolderPrompt(convId){
+  window._movingConvId=convId;
+  const list=document.getElementById('folderPickerList');
+  let html='<button onclick="doMoveToFolder(null)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;text-align:left;font-family:var(--font);font-size:13px;font-weight:700;color:var(--ink);cursor:pointer"><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span>Без папки</button>';
+  window.chatFolders.forEach(f=>{
+    html+='<button onclick="doMoveToFolder(\''+f.id+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;text-align:left;font-family:var(--font);font-size:13px;font-weight:700;color:var(--ink);cursor:pointer"><span style="width:10px;height:10px;border-radius:50%;background:'+(f.color||'#1C6EF2')+'"></span>'+f.name+'</button>';
+  });
+  list.innerHTML=html;
+  document.getElementById('folderPickerOvl').classList.add('open');
+}
+function closeFolderPicker(){document.getElementById('folderPickerOvl').classList.remove('open')}
+async function doMoveToFolder(folderId){
+  const convId=window._movingConvId;
   const token=localStorage.getItem('nesay_token');
   try{
     await fetch(`${API}/messages/conversations/${convId}/folder`,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({folder_id:folderId})});
+    closeFolderPicker();
     await loadConversationsList();
     renderChatList();
     showToast('Перемещено');
@@ -5018,6 +5073,24 @@ function copyRefLink(){
     <div style="font-size:13px;color:#888;margin-bottom:20px;line-height:1.5">Вы сохранили это объявление. Найти его можно в разделе «Избранное».</div>
     <button onclick="goToMobileFavorites()" style="width:100%;padding:13px;border-radius:12px;border:none;background:#3167F1;color:#fff;font-weight:700;font-size:14px;margin-bottom:10px">Перейти в избранное</button>
     <button onclick="dontShowFavPopup()" style="width:100%;padding:13px;border-radius:12px;border:none;background:none;color:#888;font-weight:600;font-size:13px">Больше не показывать</button>
+  </div>
+</div>
+<!-- FOLDER INPUT MODAL -->
+<div class="ovl" id="folderInputOvl" onclick="if(event.target===this)closeFolderInput()" style="z-index:100000">
+  <div onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;padding:22px;max-width:320px;width:90%;margin:auto">
+    <div id="folderInputTitle" style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:14px">Новая папка</div>
+    <input id="folderInputField" type="text" placeholder="Название папки" style="width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;font-family:var(--font);box-sizing:border-box;margin-bottom:14px" onkeydown="if(event.key==='Enter')confirmFolderInput()">
+    <div id="folderColorRow" style="display:flex;gap:10px;margin-bottom:18px"></div>
+    <button id="folderSaveBtn" onclick="confirmFolderInput()" style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--c);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:var(--font)">Создать</button>
+    <button id="folderDeleteBtn" onclick="deleteFolderConfirm()" style="display:none;width:100%;padding:10px;border-radius:12px;border:none;background:transparent;color:#E24B4A;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--font);margin-top:8px">Удалить папку</button>
+  </div>
+</div>
+
+<!-- FOLDER PICKER MODAL -->
+<div class="ovl" id="folderPickerOvl" onclick="if(event.target===this)closeFolderPicker()" style="z-index:100000">
+  <div onclick="event.stopPropagation()" style="background:#fff;border-radius:16px;padding:20px;max-width:320px;width:90%;margin:auto">
+    <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:14px">Переместить в папку</div>
+    <div id="folderPickerList" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto"></div>
   </div>
 </div>
 </body>
