@@ -1407,8 +1407,11 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <button class="slide-btn slide-prev" id="dtmPrev" onclick="event.stopPropagation();dtmNav(-1)" style="display:none">‹</button>
       <button class="slide-btn slide-next" id="dtmNext" onclick="event.stopPropagation();dtmNav(1)" style="display:none">›</button>
       <div class="slide-dots" id="dtmDots"></div>
-      <button class="dcl" onclick="event.stopPropagation();shareListing(listings[activeIdx]&&listings[activeIdx].id)" style="right:56px">↗</button>
-      <button class="dcl" onclick="closeDetail()">✕</button>
+      <div style="position:absolute;top:10px;right:10px;z-index:5;display:flex;gap:8px">
+        <button class="dcl" id="dFavBtn" onclick="event.stopPropagation();toggleDetailFav()" style="position:static">🤍</button>
+        <button class="dcl" onclick="event.stopPropagation();shareListing(listings[activeIdx]&&listings[activeIdx].id)" style="position:static"><span style="font-size:15px">↗</span></button>
+        <button class="dcl" onclick="closeDetail()" style="position:static">✕</button>
+      </div>
     </div>
     <div class="dby">
       <div class="dpr" id="dPrc"></div>
@@ -2842,6 +2845,7 @@ function openDetail(idx){
   document.getElementById('chatAv').textContent=ag.initials;
   document.getElementById('chatAgNm').textContent=ag.name;
   document.getElementById('chatLst').textContent=d.addr[lang]+' · '+pStr;
+  const dFavBtn=document.getElementById('dFavBtn');if(dFavBtn)dFavBtn.textContent=favIds.has(String(d.id))?'❤️':'🤍';
   document.getElementById('detailPop').classList.add('open');
   document.querySelectorAll('.card').forEach(c=>c.classList.toggle('active',c.dataset.id==d.id));
   document.querySelector(`.card[data-id="${d.id}"]`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -4534,6 +4538,23 @@ tryAutoLogin();
     }
   }catch(e){console.warn('DB load error:',e);}
 })();
+function toggleDetailFav(){
+  const d=listings[activeIdx];if(!d)return;
+  const id=String(d.id);
+  const btn=document.getElementById('dFavBtn');
+  if(favIds.has(id)){
+    favIds.delete(id);
+    if(btn)btn.textContent='🤍';
+  }else{
+    favIds.add(id);
+    if(btn)btn.textContent='❤️';
+    showMobileFavPopup();
+  }
+  const dot=document.getElementById('M-fav-dot');
+  if(dot)dot.style.display=favIds.size>0?'flex':'none';
+  const card=document.querySelector(`.card[data-id="${d.id}"] .act-btn`);
+  if(card)card.textContent=favIds.has(id)?'❤️':'🤍';
+}
 function shareListing(listingId){
   const url=window.location.origin+window.location.pathname+'?listing='+listingId;
   const shareText='С вами поделились объявлением от Domania — перейдите по ссылке, чтобы просмотреть';
