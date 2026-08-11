@@ -3671,6 +3671,60 @@ async function loadConversationsList(){
     if(res.ok)window.chatConversations=await res.json();
   }catch(e){}
 }
+function folderPressStart(e,folderId){
+  window._folderLongPressed=false;
+  const target=e.currentTarget;
+  window._folderPressTimer=setTimeout(()=>{
+    window._folderLongPressed=true;
+    showFolderMenu(target,folderId);
+  },450);
+}
+function folderPressEnd(){
+  clearTimeout(window._folderPressTimer);
+}
+function switchFolderClick(folderId){
+  if(window._folderLongPressed){window._folderLongPressed=false;return}
+  switchFolder(folderId);
+}
+function showFolderMenu(el,folderId){
+  const menu=document.getElementById('folderLongPressMenu');
+  const rect=el.getBoundingClientRect();
+  menu.style.top=(rect.bottom+6)+'px';
+  menu.style.left=Math.min(rect.left,window.innerWidth-180)+'px';
+  menu.style.display='block';
+  menu.dataset.folderId=folderId;
+}
+function hideFolderMenu(){
+  const menu=document.getElementById('folderLongPressMenu');
+  if(menu)menu.style.display='none';
+}
+document.addEventListener('click',function(e){
+  const menu=document.getElementById('folderLongPressMenu');
+  if(menu&&menu.style.display==='block'&&!menu.contains(e.target))hideFolderMenu();
+});
+function folderMenuRename(){
+  const id=document.getElementById('folderLongPressMenu').dataset.folderId;
+  hideFolderMenu();
+  renameFolder(id);
+}
+function folderMenuDelete(){
+  const id=document.getElementById('folderLongPressMenu').dataset.folderId;
+  hideFolderMenu();
+  deleteFolderDirect(id);
+}
+async function deleteFolderDirect(folderId){
+  if(!confirm('Удалить эту папку? Чаты из неё не удалятся, просто станут без папки.'))return;
+  const token=localStorage.getItem('nesay_token');
+  try{
+    await fetch(`${API}/messages/folders/${folderId}`,{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+    if(window.activeFolderId===folderId)window.activeFolderId=null;
+    await loadFolders();
+    await loadConversationsList();
+    renderFolderTabs();
+    renderChatList();
+    showToast('Папка удалена');
+  }catch(e){showToast('Ошибка')}
+}
 function updateUnreadBadge(){
   const total=window.chatConversations.reduce((s,c)=>s+parseInt(c.unread_count||0),0);
   const badge=document.getElementById('chatUnreadBadge');
@@ -3683,7 +3737,7 @@ function renderFolderTabs(){
   window.chatFolders.forEach(f=>{
     const on=window.activeFolderId===f.id;
     const dotColor=f.color||'#1C6EF2';
-    html+='<button onclick="switchFolder(\''+f.id+'\')" ondblclick="renameFolder(\''+f.id+'\')" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:16px;border:1px solid var(--line);background:'+(on?'var(--c)':'#fff')+';color:'+(on?'#fff':'var(--ink)')+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';display:inline-block;flex-shrink:0"></span>'+f.name+'</button>';
+    html+='<button onclick="switchFolderClick(\''+f.id+'\')" onmousedown="folderPressStart(event,\''+f.id+'\')" onmouseup="folderPressEnd()" onmouseleave="folderPressEnd()" ontouchstart="folderPressStart(event,\''+f.id+'\')" ontouchend="folderPressEnd()" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:16px;border:1px solid var(--line);background:'+(on?'var(--c)':'#fff')+';color:'+(on?'#fff':'var(--ink)')+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;user-select:none"><span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';display:inline-block;flex-shrink:0"></span>'+f.name+'</button>';
   });
   html+='<button onclick="createFolder()" style="flex-shrink:0;padding:6px 12px;border-radius:16px;border:1px dashed var(--line);background:#fff;color:var(--ink3);font-size:12px;font-weight:700;cursor:pointer">+ Папка</button>';
   wrap.innerHTML=html;
@@ -5092,6 +5146,10 @@ function copyRefLink(){
     <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:14px">Переместить в папку</div>
     <div id="folderPickerList" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto"></div>
   </div>
+</div>
+<div id="folderLongPressMenu" style="display:none;position:fixed;z-index:200000;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden;min-width:160px">
+  <div onclick="folderMenuRename()" style="padding:11px 16px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px">✏️ Переименовать</div>
+  <div onclick="folderMenuDelete()" style="padding:11px 16px;font-size:13px;font-weight:700;color:#E24B4A;cursor:pointer;display:flex;align-items:center;gap:8px">🗑️ Удалить</div>
 </div>
 </body>
 </html>
