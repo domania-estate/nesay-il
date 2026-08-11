@@ -3603,10 +3603,19 @@ async function loadChatMessages(){
     msgs.querySelectorAll('.msg').forEach(el=>el.remove());
     data.messages.forEach(m=>{
       const el=document.createElement('div');
-      el.className='msg '+(m.sender_id===myId?'out':'in');
+      const isMine=m.sender_id===myId;
+      el.className='msg '+(isMine?'out':'in');
       const time=new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       const mb=document.createElement('div');mb.className='mb';mb.textContent=m.text;
-      const mm=document.createElement('div');mm.className='mm';mm.textContent=time+(m.sender_id===myId?' ✓✓':'');
+      const mm=document.createElement('div');mm.className='mm';
+      mm.textContent=time;
+      if(isMine){
+        const tick=document.createElement('span');
+        tick.textContent='✓✓';
+        tick.style.marginLeft='4px';
+        tick.style.color=m.read?'#1C6EF2':'#999';
+        mm.appendChild(tick);
+      }
       el.appendChild(mb);el.appendChild(mm);
       msgs.insertBefore(el,typ);
     });
