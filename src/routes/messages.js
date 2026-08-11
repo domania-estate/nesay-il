@@ -37,21 +37,20 @@ router.post('/start', requireAuth, async (req, res) => {
     if (listingResult.rows.length === 0) return res.status(404).json({ error: 'Объявление не найдено' });
     const sellerId = listingResult.rows[0].user_id;
     const buyerId = req.user.id;
-    if (sellerId === buyerId) return res.status(400).json({ error: 'Нельзя написать самому себе' });
 
     const existing = await db.query(
       'SELECT id FROM conversations WHERE listing_id = $1 AND buyer_id = $2 AND seller_id = $3',
       [listing_id, buyerId, sellerId]
     );
     if (existing.rows.length > 0) {
-      return res.json({ conversation_id: existing.rows[0].id });
+      return res.json({ conversation_id: existing.rows[0].id, is_own_listing: sellerId === buyerId });
     }
 
     const created = await db.query(
       'INSERT INTO conversations (listing_id, buyer_id, seller_id) VALUES ($1, $2, $3) RETURNING id',
       [listing_id, buyerId, sellerId]
     );
-    res.json({ conversation_id: created.rows[0].id });
+    res.json({ conversation_id: created.rows[0].id, is_own_listing: sellerId === buyerId });
   } catch (err) {
     console.error('Start conversation error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });

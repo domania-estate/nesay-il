@@ -384,8 +384,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nav-h);
 .msg{max-width:78%;display:flex;flex-direction:column;gap:2px}
 .msg.out{align-self:flex-end;align-items:flex-end}.msg.in{align-self:flex-start}
 .mb{padding:10px 14px;border-radius:16px;font-size:13px;line-height:1.5}
-.msg.out .mb{background:var(--bg);color:var(--ink);border-bottom-right-radius:3px;border:1px solid var(--line)}
-.msg.in .mb{background:var(--c);color:#fff;border-bottom-left-radius:3px;border:2px solid rgba(28,110,242,.6)}
+.msg.out .mb{background:var(--c);color:#fff;border-bottom-right-radius:3px}
+.msg.in .mb{background:#f0f0f0;color:var(--ink);border-bottom-left-radius:3px}
 .mm{font-size:10px;color:var(--ink3)}
 .td3{display:flex;gap:3px;padding:9px 13px;background:var(--bg);border-radius:14px;border-bottom-left-radius:3px;border:1px solid var(--line);width:fit-content}
 .td3 span{width:5px;height:5px;border-radius:50%;background:var(--ink3);animation:tb 1.2s infinite}
@@ -1709,6 +1709,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
     <div style="width:8px;height:8px;border-radius:50%;background:var(--green)"></div>
     <button class="mx" onclick="closeChat()">✕</button>
   </div>
+  <div id="chatSelfWarning" style="display:none;background:#fff3cd;color:#856404;padding:8px 14px;font-size:12px;text-align:center;border-bottom:1px solid #ffe69c">⚠️ Это ваше собственное объявление</div>
   <div class="chms" id="chatMsgs">
     <div class="msg in"><div class="mb">Здравствуйте! Интересует квартира.</div><div class="mm">14:32</div></div>
     <div class="msg out"><div class="mb">Добрый день! Когда удобно посмотреть?</div><div class="mm">14:35 ✓✓</div></div>
@@ -1990,46 +1991,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
 mapboxgl.accessToken='pk.eyJ1IjoibmVzYXkiLCJhIjoiY21xeTZpeHllMHg0dzJ0c2Vma2Vsc3N3ayJ9._ABUJLdsv0SC6upvQ4gP2w';
 
 // ═══ DATA ═══
-const listings=[
-  {id:1,dealType:'rent',thumb:'linear-gradient(135deg,#1a3a5c,#0d5480)',icon:'🏢',priceNum:8500,addr:{ru:'Ибн Гвироль 78, Тель-Авив',he:'אבן גבירול 78, תל אביב',en:'Ibn Gabirol 78, Tel Aviv'},rooms:4,sqm:110,floor:'7/14',tags:{ru:['Безоп. комн. ✓','Балкон ✓','Парковка','Кондиц.'],he:["ממ\"ד ✓",'מרפסת ✓','חניה','מזגן'],en:['Safe room ✓','Balcony ✓','Parking','A/C']},hi:[0,1],desc:{ru:'Отличная квартира в Северном Тель-Авиве. Высокий этаж, открытый вид.',he:'דירה מצוינת בצפון תל אביב.',en:'Excellent apartment in North Tel Aviv.'},agent:{name:'Roni Tzadok',initials:'RT',type:'agent',verified:true,deals:43,rating:4.9,reviews:127,honesty:92},badge:'top',promoted:true,_promoMins:1380,lat:32.0858,lng:34.7823},
-  {id:2,dealType:'rent',thumb:'linear-gradient(135deg,#2d4a1e,#4a7c2f)',icon:'🌿',priceNum:6200,addr:{ru:'Биалик 12, Ришон',he:'ביאליק 12, ראשון לציון',en:'Bialik 12, Rishon LeZion'},rooms:3,sqm:85,floor:'2/6',tags:{ru:['Сад ✓','Парковка','Двор'],he:['גינה ✓','חניה','קדמי'],en:['Garden ✓','Parking','Front']},hi:[0],desc:{ru:'Красивая квартира с частным садом.',he:'דירה יפה עם גינה פרטית.',en:'Beautiful apartment with private garden.'},agent:{name:'Michal Israeli',initials:'MI',type:'owner',verified:false,deals:3,rating:4.2,reviews:8,honesty:45},badge:'new',lat:31.9896,lng:34.7993},
-  {id:3,dealType:'sale',thumb:'linear-gradient(135deg,#5c1a3a,#8f2d5c)',icon:'🏙️',priceNum:2800000,addr:{ru:'Ротшильд 88, Тель-Авив',he:'רוטשילד 88, תל אביב',en:'Rothschild 88, Tel Aviv'},rooms:4.5,sqm:166,floor:'18/18',tags:{ru:['Безоп. комн. ✓','Крыша ✓','2 паркинга','Вид на море'],he:["ממ\"ד ✓",'גג ✓','2 חניות','נוף ים'],en:['Safe room ✓','Roof ✓','2 parking','Sea view']},hi:[0,1],desc:{ru:'Пентхаус на Ротшильд с видом на море.',he:'פנטהאוס ברוטשילד עם נוף לים.',en:'Penthouse on Rothschild with sea view.'},agent:{name:'Anglo-Saxon',initials:'AS',type:'agency',verified:true,deals:210,rating:4.7,reviews:532,honesty:88},badge:null,lat:32.0699,lng:34.7744},
-  {id:4,dealType:'rent',thumb:'linear-gradient(135deg,#1a3a5c,#2c5f8a)',icon:'🏘️',priceNum:4500,addr:{ru:'Герцль 44, Хайфа',he:'הרצל 44, חיפה',en:'Herzl 44, Haifa'},rooms:2,sqm:55,floor:'1/4',tags:{ru:['Балкон','Лифт'],he:['מרפסת','מעלית'],en:['Balcony','Elevator']},hi:[],desc:{ru:'Тихая 2-комнатная квартира.',he:'דירת 2 חדרים שקטה.',en:'Quiet 2-room apartment.'},agent:{name:'David Levy',initials:'DL',type:'agent',verified:false,deals:19,rating:4.0,reviews:31,honesty:62},badge:null,lat:32.7940,lng:34.9896},
-  {id:5,dealType:'sale',thumb:'linear-gradient(135deg,#3a2a0e,#7a5a20)',icon:'🏠',priceNum:1950000,addr:{ru:'Шиболим 3, Раанана',he:'שיבולים 3, רעננה',en:"Shibolim 3, Ra'anana"},rooms:5,sqm:140,floor:'1/1',tags:{ru:['Сад ✓','2 паркинга','Кондиц.'],he:['גינה ✓','2 חניות','מזגן'],en:['Garden ✓','2 parking','A/C']},hi:[0],desc:{ru:'Просторный дом с садом.',he:'בית מרווח עם גינה.',en:'Spacious house with garden.'},agent:{name:'RE/MAX',initials:'RM',type:'agency',verified:true,deals:380,rating:4.8,reviews:891,honesty:95},badge:null,lat:32.0867,lng:34.8786},
-  {id:6,dealType:'sale',thumb:'linear-gradient(135deg,#0e2a3a,#1a5c7a)',icon:'🌊',priceNum:1400000,addr:{ru:'Ха-Намаль 7, Хайфа',he:'הנמל 7, חיפה',en:'Ha-Namal 7, Haifa'},rooms:3,sqm:78,floor:'4/8',tags:{ru:['Вид на море ✓','Безоп. комн. ✓'],he:['נוף ים ✓',"ממ\"ד ✓"],en:['Sea view ✓','Safe room ✓']},hi:[0,1],desc:{ru:'Квартира с видом на море.',he:'דירה עם נוף לים.',en:'Sea-view apartment.'},agent:{name:'Israel Kadmi',initials:'IK',type:'owner',verified:false,deals:1,rating:0,reviews:0,honesty:20},badge:'new',lat:32.8100,lng:34.9896}
-];
-(function(){
-  const streets=[{ru:'Герцль',he:'הרצל',en:'Herzl'},{ru:'Алленби',he:'אלנבי',en:'Allenby'},{ru:'Бен-Гурион',he:'בן גוריון',en:'Ben Gurion'},{ru:'Жаботинский',he:"ז'בוטינסקי",en:'Jabotinsky'},{ru:'Вайцман',he:'ויצמן',en:'Weizmann'},{ru:'Бялик',he:'ביאליק',en:'Bialik'},{ru:'Ротшильд',he:'רוטשילד',en:'Rothschild'},{ru:'Кинг Джордж',he:'קינג ג\'ורג',en:'King George'}];
-  const cities=[{ru:'Хайфа',he:'חיפה',en:'Haifa',lat:32.7940,lng:34.9896},{ru:'Кирьят-Ям',he:'קריית ים',en:'Kiryat Yam',lat:32.8467,lng:35.0683},{ru:'Кирьят-Бялик',he:'קריית ביאליק',en:'Kiryat Bialik',lat:32.8275,lng:35.0837},{ru:'Нешер',he:'נשר',en:'Nesher',lat:32.7682,lng:35.0467},{ru:'Акко',he:'עכו',en:'Akko',lat:32.9237,lng:35.0683}];
-  const grads=['linear-gradient(135deg,#1a3a5c,#0d5480)','linear-gradient(135deg,#2d4a1e,#4a7c2f)','linear-gradient(135deg,#5c1a3a,#8f2d5c)','linear-gradient(135deg,#3a2a0e,#7a5a20)','linear-gradient(135deg,#0e2a3a,#1a5c7a)'];
-  const icons=['🏢','🏠','🏘️','🏡','🌿','🏙️'];
-  const ags=[{name:'RE/MAX',initials:'RM',type:'agency',verified:true,deals:380,rating:4.8,reviews:891,honesty:95},{name:'David Levy',initials:'DL',type:'agent',verified:false,deals:19,rating:4.0,reviews:31,honesty:62},{name:'Tamar Gold',initials:'TG',type:'agent',verified:true,deals:67,rating:4.6,reviews:154,honesty:84}];
-  const AMENITIES=[
-    {ru:'Балкон',he:'מרפסת',en:'Balcony'},
-    {ru:'Парковка',he:'חניה',en:'Parking'},
-    {ru:'Сад',he:'גינה',en:'Garden'},
-    {ru:'Вид на море',he:'נוף ים',en:'Sea view'},
-    {ru:'Безоп. комн.',he:'ממ"ד',en:'Safe room'},
-    {ru:'Лифт',he:'מעלית',en:'Elevator'},
-    {ru:'Кондиц.',he:'מזגן',en:'A/C'},
-    {ru:'Кладовая',he:'מחסן',en:'Storage'}
-  ];
-  function randomTags(){
-    const n=2+Math.floor(Math.random()*3);
-    const pool=[...AMENITIES].sort(()=>Math.random()-.5).slice(0,n);
-    return {ru:pool.map(t=>t.ru),he:pool.map(t=>t.he),en:pool.map(t=>t.en)};
-  }
-  const b=listings.length;
-  for(let k=0;k<80;k++){
-    const c=cities[k%cities.length];const dt=Math.random()<.6?'rent':'sale';
-    const rooms=[1,1.5,2,2.5,3,3.5,4,4.5,5][Math.floor(Math.random()*9)];
-    const sqm=Math.floor(35+Math.random()*150);const fl=Math.floor(1+Math.random()*13);
-    const st=streets[Math.floor(Math.random()*streets.length)];const num=Math.floor(2+Math.random()*180);
-    const pnum=dt==='rent'?Math.floor(3000+Math.random()*9000):Math.floor(900000+Math.random()*2500000);
-    const tg=randomTags();const ag=ags[Math.floor(Math.random()*ags.length)];const conds=['new','renovated','cosmetic','needs_repair'];const cond=conds[Math.floor(Math.random()*conds.length)];const furns=['full','partial','none'];const furn=furns[Math.floor(Math.random()*furns.length)];const petsOpts=['yes','no','small_dog','small_cat'];const pets=petsOpts[Math.floor(Math.random()*petsOpts.length)];const ptypes=['apartment','apartment','apartment','house','commercial'];const ptype=ptypes[Math.floor(Math.random()*ptypes.length)];
-    listings.push({id:b+k+1,dealType:dt,thumb:grads[Math.floor(Math.random()*grads.length)],icon:icons[Math.floor(Math.random()*icons.length)],priceNum:pnum,addr:{ru:st.ru+' '+num+', '+c.ru,he:st.he+' '+num+', '+c.he,en:st.en+' '+num+', '+c.en},rooms,sqm,floor:fl+'/'+(fl+Math.floor(1+Math.random()*12)),tags:tg,condition:cond,furnished:furn,petsPolicy:pets,propertyType:ptype,hi:[0],desc:{ru:'Уютная квартира в '+c.ru+'.',he:'דירה נחמדה ב'+c.he+'.',en:'Cozy apt in '+c.en+'.'},agent:ag,badge:Math.random()<.08?'new':null,lat:c.lat+(Math.random()-.5)*.03,lng:c.lng+(Math.random()-.5)*.03});
-  }
-})();
+const listings=[];
 // ═══ ДЕМО-ФОТО (Unsplash, свободная лицензия) ═══
 (function(){
   const Q='?w=800&q=70&auto=format&fit=crop';
@@ -3482,7 +3444,7 @@ function t(k){return (I18N[lang]||I18N.ru)[k]||k;}
 // ═══ API — подключение к серверу ═══
 const API=(function(){
   var h=window.location.hostname;
-  if(h==='localhost'||h==='127.0.0.1'||h==='10.100.102.101')return 'http://10.100.102.101:4000/api';
+  if(h==='localhost'||h==='127.0.0.1'||h==='192.168.0.205')return 'http://192.168.0.205:4000/api';
   return window.location.origin+'/api';
 })();
 
@@ -3577,6 +3539,7 @@ function hideLoader(){
 function finishAuth(user){
   const u=typeof user==='object'?user:{email:user,name:'Пользователь',role:selectedRole||'buyer',credits:0};
   loggedIn=true;
+  window.currentUser=u;
   const isAgent=u.role==='agent'||u.role==='owner';
   closeAuth();
   document.getElementById('navGuest').style.display='none';
@@ -3606,9 +3569,65 @@ function reqAuth(){if(!loggedIn)openAuth('login');else openPub()}
 function logout(){loggedIn=false;localStorage.removeItem('nesay_token');closeCab();document.getElementById('navGuest').style.display='flex';document.getElementById('navUser').style.display='none';showToast('👋')}
 
 // CHAT
-function openChat(){document.getElementById('chatOvl').classList.add('open');document.querySelector('.cn').style.display='none';setTimeout(()=>document.getElementById('chatMsgs').scrollTop=9999,50)}
-function closeChat(){document.getElementById('chatOvl').classList.remove('open')}
-function sendMsg(){const inp=document.getElementById('chatInp');const txt=inp.value.trim();if(!txt)return;inp.value='';const msgs=document.getElementById('chatMsgs'),typ=document.getElementById('typInd');const d=document.createElement('div');d.className='msg in';d.innerHTML=`<div class="mb">${txt}</div><div class="mm">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>`;msgs.insertBefore(d,typ);msgs.scrollTop=msgs.scrollHeight;typ.style.display='';msgs.scrollTop=msgs.scrollHeight;setTimeout(()=>{typ.style.display='none';const r=['👍','!מעולה','OK!','Отлично!'];const x=document.createElement('div');x.className='msg out';x.innerHTML=`<div class="mb">${r[Math.floor(Math.random()*r.length)]}</div><div class="mm">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} ✓✓</div>`;msgs.insertBefore(x,typ);msgs.scrollTop=msgs.scrollHeight},1400)}
+window.activeConversationId=null;
+async function openChat(){
+  const d=listings[activeIdx];
+  if(!loggedIn){document.getElementById('chatOvl').classList.remove('open');openAuth('login');return}
+  if(!d){showToast('Откройте объявление, чтобы написать');return}
+  const token=localStorage.getItem('nesay_token');
+  document.getElementById('chatOvl').classList.add('open');
+  document.querySelector('.cn').style.display='none';
+  const msgs=document.getElementById('chatMsgs');
+  msgs.querySelectorAll('.msg').forEach(el=>el.remove());
+  try{
+    const startRes=await fetch(`${API}/messages/start`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({listing_id:d.id})});
+    const startData=await startRes.json();
+    if(!startRes.ok){showToast(startData.error||'Ошибка');return}
+    window.activeConversationId=startData.conversation_id;
+    const warnEl=document.getElementById('chatSelfWarning');
+    if(warnEl)warnEl.style.display=startData.is_own_listing?'block':'none';
+    await loadChatMessages();
+    if(window._chatPoll)clearInterval(window._chatPoll);
+    window._chatPoll=setInterval(loadChatMessages,4000);
+  }catch(e){showToast('Сервер недоступен')}
+}
+async function loadChatMessages(){
+  if(!window.activeConversationId)return;
+  const token=localStorage.getItem('nesay_token');
+  try{
+    const res=await fetch(`${API}/messages/conversations/${window.activeConversationId}`,{headers:{'Authorization':'Bearer '+token}});
+    if(!res.ok)return;
+    const data=await res.json();
+    const msgs=document.getElementById('chatMsgs'),typ=document.getElementById('typInd');
+    const myId=window.currentUser&&window.currentUser.id;
+    msgs.querySelectorAll('.msg').forEach(el=>el.remove());
+    data.messages.forEach(m=>{
+      const el=document.createElement('div');
+      el.className='msg '+(m.sender_id===myId?'out':'in');
+      const time=new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const mb=document.createElement('div');mb.className='mb';mb.textContent=m.text;
+      const mm=document.createElement('div');mm.className='mm';mm.textContent=time+(m.sender_id===myId?' ✓✓':'');
+      el.appendChild(mb);el.appendChild(mm);
+      msgs.insertBefore(el,typ);
+    });
+    msgs.scrollTop=msgs.scrollHeight;
+  }catch(e){}
+}
+function closeChat(){
+  document.getElementById('chatOvl').classList.remove('open');
+  if(window._chatPoll){clearInterval(window._chatPoll);window._chatPoll=null}
+}
+async function sendMsg(){
+  const inp=document.getElementById('chatInp');
+  const txt=inp.value.trim();
+  if(!txt||!window.activeConversationId)return;
+  inp.value='';
+  const token=localStorage.getItem('nesay_token');
+  try{
+    await fetch(`${API}/messages/conversations/${window.activeConversationId}/send`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({text:txt})});
+    await loadChatMessages();
+  }catch(e){showToast('Ошибка отправки')}
+}
 
 // CABINET
 let _modUsersCache=[];
