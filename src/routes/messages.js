@@ -41,10 +41,13 @@ router.post('/start', requireAuth, async (req, res) => {
     const buyerId = req.user.id;
 
     const existing = await db.query(
-      'SELECT id FROM conversations WHERE listing_id = $1 AND buyer_id = $2 AND seller_id = $3',
-      [listing_id, buyerId, sellerId]
+      `SELECT id FROM conversations
+       WHERE (buyer_id = $1 AND seller_id = $2) OR (buyer_id = $2 AND seller_id = $1)
+       ORDER BY created_at DESC LIMIT 1`,
+      [buyerId, sellerId]
     );
     if (existing.rows.length > 0) {
+      await db.query('UPDATE conversations SET listing_id = $1 WHERE id = $2', [listing_id, existing.rows[0].id]);
       return res.json({ conversation_id: existing.rows[0].id, is_own_listing: sellerId === buyerId });
     }
 
@@ -62,7 +65,18 @@ router.post('/start', requireAuth, async (req, res) => {
 // Получить сообщения конкретного чата
 router.get('/conversations/:id', requireAuth, async (req, res) => {
   try {
-    const conv = await db.query('SELECT * FROM conversations WHERE id = $1', [req.params.id]);
+    const conv = await db.query(`
+      SELECT c.*,
+        (l.street || CASE WHEN l.house_number IS NOT NULL THEN ' ' || l.house_number ELSE '' END) AS listing_address,
+        l.price AS listing_price, l.deal_type AS listing_deal_type,
+        l.description AS listing_description,
+        (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS listing_photo,
+        ou.name AS other_user_name
+      FROM conversations c
+      LEFT JOIN listings l ON l.id = c.listing_id
+      JOIN users ou ON ou.id = (CASE WHEN c.buyer_id = $2 THEN c.seller_id ELSE c.buyer_id END)
+      WHERE c.id = $1
+    `, [req.params.id, req.user.id]);
     if (conv.rows.length === 0) return res.status(404).json({ error: 'Чат не найден' });
     const c = conv.rows[0];
     if (c.buyer_id !== req.user.id && c.seller_id !== req.user.id) {

@@ -1407,6 +1407,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
       <button class="slide-btn slide-prev" id="dtmPrev" onclick="event.stopPropagation();dtmNav(-1)" style="display:none">‹</button>
       <button class="slide-btn slide-next" id="dtmNext" onclick="event.stopPropagation();dtmNav(1)" style="display:none">›</button>
       <div class="slide-dots" id="dtmDots"></div>
+      <button class="dcl" onclick="event.stopPropagation();shareListing(listings[activeIdx]&&listings[activeIdx].id)" style="right:56px">↗</button>
       <button class="dcl" onclick="closeDetail()">✕</button>
     </div>
     <div class="dby">
@@ -1723,6 +1724,7 @@ html.mob #drawZoneClear { top:auto;bottom:calc(72px + env(safe-area-inset-bottom
     <button class="mx" onclick="closeChat()">✕</button>
   </div>
   <div id="chatSelfWarning" style="display:none;background:#fff3cd;color:#856404;padding:8px 14px;font-size:12px;text-align:center;border-bottom:1px solid #ffe69c">⚠️ Это ваше собственное объявление</div>
+  <div id="chatListingCard" style="display:none;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer"></div>
   <div class="chms" id="chatMsgs">
     <div class="msg in"><div class="mb">Здравствуйте! Интересует квартира.</div><div class="mm">14:32</div></div>
     <div class="msg out"><div class="mb">Добрый день! Когда удобно посмотреть?</div><div class="mm">14:35 ✓✓</div></div>
@@ -3610,6 +3612,7 @@ async function loadChatMessages(){
     const res=await fetch(`${API}/messages/conversations/${window.activeConversationId}`,{headers:{'Authorization':'Bearer '+token}});
     if(!res.ok)return;
     const data=await res.json();
+    if(data.conversation)renderListingCard(data.conversation);
     const msgs=document.getElementById('chatMsgs'),typ=document.getElementById('typInd');
     const myId=window.currentUser&&window.currentUser.id;
     msgs.querySelectorAll('.msg').forEach(el=>el.remove());
@@ -3877,6 +3880,23 @@ async function openChatFromList(convId){
   await loadChatMessages();
   if(window._chatPoll)clearInterval(window._chatPoll);
   window._chatPoll=setInterval(loadChatMessages,4000);
+}
+function renderListingCard(c){
+  const card=document.getElementById('chatListingCard');
+  if(!card)return;
+  if(!c.listing_id){card.style.display='none';return}
+  const price=c.listing_price?('₪'+Number(c.listing_price).toLocaleString()+(c.listing_deal_type==='rent'?'/мес.':'')):'';
+  const desc=(c.listing_description&&typeof c.listing_description==='object')?(c.listing_description.ru||''):'';
+  card.innerHTML=`<div style="display:flex;gap:10px;align-items:center" onclick="window.open('${window.location.origin}?listing='+'${c.listing_id}','_blank')">
+    <div style="width:52px;height:52px;border-radius:10px;background:${c.listing_photo?`url('${c.listing_photo}') center/cover`:'#eee'};flex-shrink:0"></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:800;color:var(--ink)">${price}</div>
+      <div style="font-size:12px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.listing_address||''}</div>
+      ${desc?`<div style="font-size:11px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${desc}</div>`:''}
+    </div>
+    <span style="font-size:11px;color:var(--c);font-weight:700;flex-shrink:0">Открыть →</span>
+  </div>`;
+  card.style.display='block';
 }
 async function sendMsg(){
   const inp=document.getElementById('chatInp');
@@ -4507,8 +4527,22 @@ tryAutoLogin();
       renderCards(filteredListings);
       if(mapLoaded)rebuildMarkers(filteredListings);
     }
+    const sharedId=new URLSearchParams(window.location.search).get('listing');
+    if(sharedId){
+      const idx=listings.findIndex(l=>String(l.id)===String(sharedId));
+      if(idx>=0)setTimeout(()=>openDetail(idx),300);
+    }
   }catch(e){console.warn('DB load error:',e);}
 })();
+function shareListing(listingId){
+  const url=window.location.origin+window.location.pathname+'?listing='+listingId;
+  const shareText='С вами поделились объявлением от Domania — перейдите по ссылке, чтобы просмотреть';
+  if(navigator.share){
+    navigator.share({title:'Domania',text:shareText,url:url}).catch(()=>{});
+  }else{
+    navigator.clipboard.writeText(url).then(()=>showToast('Ссылка скопирована!'));
+  }
+}
 </script>
 
 
