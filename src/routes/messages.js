@@ -14,10 +14,12 @@ router.get('/conversations', requireAuth, async (req, res) => {
         (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS listing_photo,
         (SELECT text FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
-        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != $1 AND read = false) AS unread_count
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != $1 AND read = false) AS unread_count,
+        cf.folder_id
       FROM conversations c
       JOIN users ou ON ou.id = (CASE WHEN c.buyer_id = $1 THEN c.seller_id ELSE c.buyer_id END)
       LEFT JOIN listings l ON l.id = c.listing_id
+      LEFT JOIN conversation_folders cf ON cf.conversation_id = c.id AND cf.user_id = $1
       WHERE c.buyer_id = $1 OR c.seller_id = $1
       ORDER BY COALESCE((SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1), c.created_at) DESC
     `, [req.user.id]);
@@ -119,3 +121,76 @@ router.get('/unread-count', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+// ═══ ПАПКИ ЧАТОВ ═══
+
+// Список папок пользователя
+router.get('/folders', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM chat_folders WHERE user_id = $1 ORDER BY created_at ASC', [req.user.id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Folders fetch error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Создать папку
+router.post('/folders', requireAuth, async (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Укажите название папки' });
+  try {
+    const result = await db.query(
+      'INSERT INTO chat_folders (user_id, name) VALUES ($1, $2) RETURNING *',
+      [req.user.id, name.trim()]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Folder create error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Переименовать папку
+router.put('/folders/:id', requireAuth, async (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Укажите название папки' });
+  try {
+    const result = await db.query(
+      'UPDATE chat_folders SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+      [name.trim(), req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Папка не найдена' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Folder rename error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Удалить папку
+router.delete('/folders/:id', requireAuth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM chat_folders WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Folder delete error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Переместить чат в папку (folder_id null = убрать из папок)
+router.put('/conversations/:id/folder', requireAuth, async (req, res) => {
+  const { folder_id } = req.body;
+  try {
+    await db.query(`
+      INSERT INTO conversation_folders (user_id, conversation_id, folder_id)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, conversation_id) DO UPDATE SET folder_id = $3
+    `, [req.user.id, req.params.id, folder_id || null]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Move to folder error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
