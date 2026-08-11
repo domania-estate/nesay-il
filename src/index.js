@@ -21,6 +21,7 @@ app.use('/api/listings', require('./routes/listings'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/admin',    require('./routes/admin'));
+app.use('/api/messages', require('./routes/messages'));
 
 app.get('/api/cities', async (req, res) => {
   try {
