@@ -125,18 +125,29 @@ app.get('/api/nearby', async (req, res) => {
   if (!key) return res.status(503).json({ error: 'Places API не настроен' });
   try {
     const results = await Promise.all(NEARBY_CATEGORIES.map(async ({ key: catKey, type }) => {
-      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=1200&type=${type}&language=ru&key=${key}`;
-      const r = await fetch(url);
+      const r = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': key,
+          'X-Goog-FieldMask': 'places.displayName,places.location',
+        },
+        body: JSON.stringify({
+          includedTypes: [type],
+          maxResultCount: 5,
+          languageCode: 'ru',
+          locationRestriction: { circle: { center: { latitude: parseFloat(lat), longitude: parseFloat(lng) }, radius: 1200 } },
+        }),
+      });
       const data = await r.json();
-      if (data.status !== 'OK') {
-        console.log(`🔍 Places nearby (${type}) вернул:`, data.status, data.error_message || '(без сообщения)');
-        return { category: catKey, places: [], _status: data.status, _msg: data.error_message };
+      if (!r.ok) {
+        console.log(`🔍 Places nearby (${type}) вернул:`, r.status, data.error?.message || '(без сообщения)');
+        return { category: catKey, places: [] };
       }
-      const places = (data.results || [])
-        .slice(0, 5)
+      const places = (data.places || [])
         .map((p) => ({
-          name: p.name,
-          distance: haversineMeters(parseFloat(lat), parseFloat(lng), p.geometry.location.lat, p.geometry.location.lng),
+          name: p.displayName?.text || '',
+          distance: haversineMeters(parseFloat(lat), parseFloat(lng), p.location.latitude, p.location.longitude),
         }))
         .sort((a, b) => a.distance - b.distance);
       return { category: catKey, places };
