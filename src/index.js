@@ -123,19 +123,22 @@ const NEARBY_CATEGORIES = [
 // тратить платную квоту повторно на объявления по соседству.
 const NEARBY_CACHE_TTL_DAYS = 30;
 
+const NEARBY_SUPPORTED_LANGS = ['ru', 'en', 'he'];
+
 app.get('/api/nearby', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'Укажите координаты' });
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return res.status(503).json({ error: 'Places API не настроен' });
+  const lang = NEARBY_SUPPORTED_LANGS.includes(req.query.lang) ? req.query.lang : 'ru';
   const db = require('../config/db');
   const latKey = Math.round(parseFloat(lat) * 1000) / 1000;
   const lngKey = Math.round(parseFloat(lng) * 1000) / 1000;
   try {
     const results = await Promise.all(NEARBY_CATEGORIES.map(async ({ key: catKey, type }) => {
       const cached = await db.query(
-        `SELECT places FROM nearby_cache WHERE lat_key = $1 AND lng_key = $2 AND category = $3 AND updated_at > NOW() - INTERVAL '${NEARBY_CACHE_TTL_DAYS} days'`,
-        [latKey, lngKey, catKey]
+        `SELECT places FROM nearby_cache WHERE lat_key = $1 AND lng_key = $2 AND category = $3 AND lang = $4 AND updated_at > NOW() - INTERVAL '${NEARBY_CACHE_TTL_DAYS} days'`,
+        [latKey, lngKey, catKey, lang]
       );
       if (cached.rows.length) return { category: catKey, places: cached.rows[0].places };
 
@@ -149,7 +152,7 @@ app.get('/api/nearby', async (req, res) => {
         body: JSON.stringify({
           includedTypes: [type],
           maxResultCount: 5,
-          languageCode: 'ru',
+          languageCode: lang,
           locationRestriction: { circle: { center: { latitude: parseFloat(lat), longitude: parseFloat(lng) }, radius: 1200 } },
         }),
       });
@@ -166,9 +169,9 @@ app.get('/api/nearby', async (req, res) => {
         .sort((a, b) => a.distance - b.distance);
 
       await db.query(
-        `INSERT INTO nearby_cache (lat_key, lng_key, category, places, updated_at) VALUES ($1,$2,$3,$4,NOW())
-         ON CONFLICT (lat_key, lng_key, category) DO UPDATE SET places = $4, updated_at = NOW()`,
-        [latKey, lngKey, catKey, JSON.stringify(places)]
+        `INSERT INTO nearby_cache (lat_key, lng_key, category, lang, places, updated_at) VALUES ($1,$2,$3,$4,$5,NOW())
+         ON CONFLICT (lat_key, lng_key, category, lang) DO UPDATE SET places = $5, updated_at = NOW()`,
+        [latKey, lngKey, catKey, lang, JSON.stringify(places)]
       );
       return { category: catKey, places };
     }));
