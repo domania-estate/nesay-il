@@ -118,13 +118,27 @@ const NEARBY_CATEGORIES = [
   { key: 'supermarket', type: 'supermarket' },
 ];
 
+// Школы/магазины/остановки не переезжают каждый день — кэшируем ответ
+// Google на 30 суток по ячейке ~111м (3 знака после запятой), чтобы не
+// тратить платную квоту повторно на объявления по соседству.
+const NEARBY_CACHE_TTL_DAYS = 30;
+
 app.get('/api/nearby', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'Укажите координаты' });
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return res.status(503).json({ error: 'Places API не настроен' });
+  const db = require('../config/db');
+  const latKey = Math.round(parseFloat(lat) * 1000) / 1000;
+  const lngKey = Math.round(parseFloat(lng) * 1000) / 1000;
   try {
     const results = await Promise.all(NEARBY_CATEGORIES.map(async ({ key: catKey, type }) => {
+      const cached = await db.query(
+        `SELECT places FROM nearby_cache WHERE lat_key = $1 AND lng_key = $2 AND category = $3 AND updated_at > NOW() - INTERVAL '${NEARBY_CACHE_TTL_DAYS} days'`,
+        [latKey, lngKey, catKey]
+      );
+      if (cached.rows.length) return { category: catKey, places: cached.rows[0].places };
+
       const r = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
         method: 'POST',
         headers: {
@@ -150,6 +164,12 @@ app.get('/api/nearby', async (req, res) => {
           distance: haversineMeters(parseFloat(lat), parseFloat(lng), p.location.latitude, p.location.longitude),
         }))
         .sort((a, b) => a.distance - b.distance);
+
+      await db.query(
+        `INSERT INTO nearby_cache (lat_key, lng_key, category, places, updated_at) VALUES ($1,$2,$3,$4,NOW())
+         ON CONFLICT (lat_key, lng_key, category) DO UPDATE SET places = $4, updated_at = NOW()`,
+        [latKey, lngKey, catKey, JSON.stringify(places)]
+      );
       return { category: catKey, places };
     }));
     res.json({ categories: results });
