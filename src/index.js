@@ -22,6 +22,7 @@ app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/admin',    require('./routes/admin'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/ai-search', require('./routes/aiSearch'));
 
 app.get('/api/cities', async (req, res) => {
   try {
@@ -99,85 +100,20 @@ app.get('/api/reverse-geocode', async (req, res) => {
   }
 });
 
-// Что рядом с объектом — реальные школы/остановки/магазины поблизости через
-// Google Places Nearby Search (тот же ключ, что и для геокодинга). Платный
-// API — вызывается только когда пользователь открывает карточку объявления,
-// не на каждый рендер списка.
-function haversineMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return Math.round(R * 2 * Math.asin(Math.sqrt(a)));
-}
-
-const NEARBY_CATEGORIES = [
-  { key: 'school', type: 'school' },
-  { key: 'transit', type: 'transit_station' },
-  { key: 'supermarket', type: 'supermarket' },
-];
-
-// Школы/магазины/остановки не переезжают каждый день — кэшируем ответ
-// Google на 30 суток по ячейке ~111м (3 знака после запятой), чтобы не
-// тратить платную квоту повторно на объявления по соседству.
-const NEARBY_CACHE_TTL_DAYS = 30;
-
-const NEARBY_SUPPORTED_LANGS = ['ru', 'en', 'he'];
+// Что рядом с объектом — реальные школы/парки/остановки/магазины поблизости
+// через Google Places Nearby Search. Логика (кэш+запрос) вынесена в
+// src/lib/nearbyPlaces.js — её же использует AI-поиск для ранжирования.
+const { getNearby, NEARBY_SUPPORTED_LANGS } = require('./lib/nearbyPlaces');
 
 app.get('/api/nearby', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'Укажите координаты' });
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return res.status(503).json({ error: 'Places API не настроен' });
+  if (!process.env.GOOGLE_MAPS_API_KEY) return res.status(503).json({ error: 'Places API не настроен' });
   const lang = NEARBY_SUPPORTED_LANGS.includes(req.query.lang) ? req.query.lang : 'ru';
-  const db = require('../config/db');
-  const latKey = Math.round(parseFloat(lat) * 1000) / 1000;
-  const lngKey = Math.round(parseFloat(lng) * 1000) / 1000;
   try {
-    const results = await Promise.all(NEARBY_CATEGORIES.map(async ({ key: catKey, type }) => {
-      const cached = await db.query(
-        `SELECT places FROM nearby_cache WHERE lat_key = $1 AND lng_key = $2 AND category = $3 AND lang = $4 AND updated_at > NOW() - INTERVAL '${NEARBY_CACHE_TTL_DAYS} days'`,
-        [latKey, lngKey, catKey, lang]
-      );
-      if (cached.rows.length) return { category: catKey, places: cached.rows[0].places };
-
-      const r = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': key,
-          'X-Goog-FieldMask': 'places.displayName,places.location',
-        },
-        body: JSON.stringify({
-          includedTypes: [type],
-          maxResultCount: 5,
-          languageCode: lang,
-          locationRestriction: { circle: { center: { latitude: parseFloat(lat), longitude: parseFloat(lng) }, radius: 1200 } },
-        }),
-      });
-      const data = await r.json();
-      if (!r.ok) {
-        console.log(`🔍 Places nearby (${type}) вернул:`, r.status, data.error?.message || '(без сообщения)');
-        return { category: catKey, places: [] };
-      }
-      const places = (data.places || [])
-        .map((p) => ({
-          name: p.displayName?.text || '',
-          distance: haversineMeters(parseFloat(lat), parseFloat(lng), p.location.latitude, p.location.longitude),
-          lat: p.location.latitude,
-          lng: p.location.longitude,
-        }))
-        .sort((a, b) => a.distance - b.distance);
-
-      await db.query(
-        `INSERT INTO nearby_cache (lat_key, lng_key, category, lang, places, updated_at) VALUES ($1,$2,$3,$4,$5,NOW())
-         ON CONFLICT (lat_key, lng_key, category, lang) DO UPDATE SET places = $5, updated_at = NOW()`,
-        [latKey, lngKey, catKey, lang, JSON.stringify(places)]
-      );
-      return { category: catKey, places };
-    }));
-    res.json({ categories: results });
+    const byCategory = await getNearby(lat, lng, lang);
+    const categories = Object.entries(byCategory).map(([category, places]) => ({ category, places }));
+    res.json({ categories });
   } catch (err) {
     console.error('Nearby error:', err);
     res.status(500).json({ error: 'Ошибка запроса Places API' });
