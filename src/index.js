@@ -128,7 +128,10 @@ app.get('/api/nearby', async (req, res) => {
       const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=1200&type=${type}&language=ru&key=${key}`;
       const r = await fetch(url);
       const data = await r.json();
-      if (data.status !== 'OK') return { category: catKey, places: [] };
+      if (data.status !== 'OK') {
+        console.log(`🔍 Places nearby (${type}) вернул:`, data.status, data.error_message || '(без сообщения)');
+        return { category: catKey, places: [], _status: data.status, _msg: data.error_message };
+      }
       const places = (data.results || [])
         .slice(0, 5)
         .map((p) => ({
