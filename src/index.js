@@ -142,7 +142,7 @@ app.get('/api/nearby', async (req, res) => {
       const data = await r.json();
       if (!r.ok) {
         console.log(`🔍 Places nearby (${type}) вернул:`, r.status, data.error?.message || '(без сообщения)');
-        return { category: catKey, places: [], _status: r.status, _msg: data.error?.message };
+        return { category: catKey, places: [] };
       }
       const places = (data.places || [])
         .map((p) => ({
