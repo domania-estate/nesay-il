@@ -165,6 +165,8 @@ app.get('/api/nearby', async (req, res) => {
         .map((p) => ({
           name: p.displayName?.text || '',
           distance: haversineMeters(parseFloat(lat), parseFloat(lng), p.location.latitude, p.location.longitude),
+          lat: p.location.latitude,
+          lng: p.location.longitude,
         }))
         .sort((a, b) => a.distance - b.distance);
 
