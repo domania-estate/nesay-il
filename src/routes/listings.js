@@ -105,7 +105,7 @@ async function verifyPrice(cityId, dealType, price, rooms) {
 
 // Создать объявление
 router.post('/', requireAuth, async (req, res) => {
-  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description, condition, furnished, pets_allowed, seller_type } = req.body;
+  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description, condition, furnished, pets_allowed, seller_type, utilities } = req.body;
   if (!deal_type || !price) return res.status(400).json({ error: 'Укажите тип сделки и цену' });
   if (req.user.role === 'buyer') return res.status(403).json({ error: 'Покупатели не могут публиковать' });
 
@@ -127,8 +127,8 @@ router.post('/', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(`
-        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
         RETURNING *
       `, [
         req.user.id, parseInt(city_id) || 1, deal_type, property_type || 'apartment',
@@ -138,7 +138,8 @@ router.post('/', requireAuth, async (req, res) => {
         sqm ? parseInt(sqm) : null,
         JSON.stringify(description || {}),
         status, moderationReason,
-        condition || null, furnished || null, pets_allowed || null, seller_type || null
+        condition || null, furnished || null, pets_allowed || null, seller_type || null,
+        JSON.stringify(utilities || {})
       ]);
       // Снимаем 100 шекелей за публикацию
       await client.query('UPDATE users SET credits = credits - 100 WHERE id = $1', [req.user.id]);

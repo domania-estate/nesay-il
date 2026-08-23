@@ -42,6 +42,9 @@ async function uploadLicenseFile(base64, fileName, emailForPath) {
 async function uploadAvatarFile(base64, fileName, emailForPath) {
   return uploadBase64File(base64, fileName, emailForPath, 'avatars');
 }
+async function uploadIdDocumentFile(base64, fileName, emailForPath) {
+  return uploadBase64File(base64, fileName, emailForPath, 'id-documents');
+}
 
 // Регистрация
 router.post('/register', [
@@ -212,7 +215,7 @@ router.get('/me', requireAuth, async (req, res) => {
   try {
     console.log('ME: looking up user id:', req.user.id);
     const result = await db.query(
-      'SELECT id, email, name, surname, phone, role, credits, verified, is_moderator, agency_data, client_data, owner_data, avatar_url, birth_date, short_id FROM users WHERE id = $1',
+      'SELECT id, email, name, surname, phone, role, credits, verified, is_moderator, agency_data, client_data, owner_data, avatar_url, birth_date, short_id, id_document_url FROM users WHERE id = $1',
       [req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
@@ -294,6 +297,25 @@ router.put('/avatar', requireAuth, async (req, res) => {
     res.json({ success: true, avatar_url: avatarUrl });
   } catch (err) {
     console.error('Avatar update error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Загрузка фото документа, удостоверяющего личность (для верификации).
+// Хранится в отдельной приватной с точки зрения именования подпапке
+// того же bucket'а, что и остальные загрузки пользователя.
+router.put('/id-document', requireAuth, async (req, res) => {
+  const { photoBase64, fileName } = req.body;
+  if (!photoBase64) return res.status(400).json({ error: 'Файл не передан' });
+  try {
+    const userResult = await db.query('SELECT email FROM users WHERE id = $1', [req.user.id]);
+    const email = userResult.rows[0]?.email || 'user';
+    const url = await uploadIdDocumentFile(photoBase64, fileName, email);
+    if (!url) return res.status(500).json({ error: 'Не удалось загрузить файл' });
+    await db.query('UPDATE users SET id_document_url = $1 WHERE id = $2', [url, req.user.id]);
+    res.json({ success: true, id_document_url: url });
+  } catch (err) {
+    console.error('ID document upload error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

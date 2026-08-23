@@ -99,6 +99,52 @@ app.get('/api/reverse-geocode', async (req, res) => {
   }
 });
 
+// Что рядом с объектом — реальные школы/остановки/магазины поблизости через
+// Google Places Nearby Search (тот же ключ, что и для геокодинга). Платный
+// API — вызывается только когда пользователь открывает карточку объявления,
+// не на каждый рендер списка.
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.asin(Math.sqrt(a)));
+}
+
+const NEARBY_CATEGORIES = [
+  { key: 'school', type: 'school' },
+  { key: 'transit', type: 'transit_station' },
+  { key: 'supermarket', type: 'supermarket' },
+];
+
+app.get('/api/nearby', async (req, res) => {
+  const { lat, lng } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: 'Укажите координаты' });
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) return res.status(503).json({ error: 'Places API не настроен' });
+  try {
+    const results = await Promise.all(NEARBY_CATEGORIES.map(async ({ key: catKey, type }) => {
+      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=1200&type=${type}&language=ru&key=${key}`;
+      const r = await fetch(url);
+      const data = await r.json();
+      if (data.status !== 'OK') return { category: catKey, places: [] };
+      const places = (data.results || [])
+        .slice(0, 5)
+        .map((p) => ({
+          name: p.name,
+          distance: haversineMeters(parseFloat(lat), parseFloat(lng), p.geometry.location.lat, p.geometry.location.lng),
+        }))
+        .sort((a, b) => a.distance - b.distance);
+      return { category: catKey, places };
+    }));
+    res.json({ categories: results });
+  } catch (err) {
+    console.error('Nearby error:', err);
+    res.status(500).json({ error: 'Ошибка запроса Places API' });
+  }
+});
+
 app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'..','Nesay_IL.html')));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
