@@ -294,6 +294,94 @@ router.get('/favorites/mine', requireAuth, async (req, res) => {
   }
 });
 
+// Свайп в ленте рекомендаций: like — то же самое, что лайк (добавляет в
+// избранное), dislike — просто больше не показывать это объявление в
+// подборке. Оба направления пишутся в listing_swipes — это и есть
+// "история предпочтений", по которой строится подбор похожих объектов.
+router.post('/:id/swipe', requireAuth, async (req, res) => {
+  const { direction } = req.body;
+  if (direction !== 'like' && direction !== 'dislike') return res.status(400).json({ error: 'Некорректное направление' });
+  try {
+    await db.query(
+      `INSERT INTO listing_swipes (user_id, listing_id, direction) VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, listing_id) DO UPDATE SET direction = $3, created_at = NOW()`,
+      [req.user.id, req.params.id, direction]
+    );
+    if (direction === 'like') {
+      await db.query('INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [req.user.id, req.params.id]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Swipe error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Подбор похожих объявлений на основе того, что пользователь лайкнул в
+// свайп-ленте. Простая честная эвристика (не LLM): сравниваем реальные
+// признаки понравившихся объявлений (тип сделки, тип недвижимости, город,
+// средняя цена, среднее число комнат) с каждым ещё не просмотренным
+// активным объявлением и считаем, сколько признаков совпадает. Если
+// лайков ещё нет — просто новые объявления (честный холодный старт, без
+// выдуманной персонализации).
+router.get('/recommended', requireAuth, async (req, res) => {
+  try {
+    const likedRows = await db.query(`
+      SELECT l.deal_type, l.property_type, l.city_id, l.price, l.rooms
+      FROM listing_swipes s JOIN listings l ON l.id = s.listing_id
+      WHERE s.user_id = $1 AND s.direction = 'like'
+    `, [req.user.id]);
+
+    const candidates = await db.query(`
+      SELECT l.*, c.name AS city_name,
+        u.name AS agent_name, u.verified AS agent_verified, u.role AS agent_role, u.avatar_url AS agent_avatar,
+        (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS cover_photo,
+        (SELECT json_agg(url ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS all_photos,
+        (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) AS fav_count,
+        (SELECT json_agg(json_build_object('price', price, 'recordedAt', recorded_at) ORDER BY recorded_at) FROM listing_price_history WHERE listing_id = l.id) AS price_history
+      FROM listings l
+      JOIN cities c ON c.id = l.city_id
+      JOIN users  u ON u.id = l.user_id
+      WHERE l.status = 'active' AND l.user_id != $1
+        AND l.id NOT IN (SELECT listing_id FROM listing_swipes WHERE user_id = $1)
+      ORDER BY l.created_at DESC
+      LIMIT 300
+    `, [req.user.id]);
+
+    if (!likedRows.rows.length) {
+      return res.json({ listings: candidates.rows.slice(0, 50), personalized: false });
+    }
+
+    const liked = likedRows.rows;
+    const mode = (arr) => {
+      const counts = {};
+      arr.forEach((v) => { counts[v] = (counts[v] || 0) + 1; });
+      return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    };
+    const preferredDealType = mode(liked.map((l) => l.deal_type));
+    const preferredPropertyType = mode(liked.map((l) => l.property_type));
+    const preferredCityId = mode(liked.map((l) => String(l.city_id)));
+    const avgPrice = liked.reduce((s, l) => s + l.price, 0) / liked.length;
+    const avgRooms = liked.reduce((s, l) => s + parseFloat(l.rooms), 0) / liked.length;
+
+    const scored = candidates.rows.map((item) => {
+      let score = 0;
+      if (item.deal_type === preferredDealType) score += 3;
+      if (item.property_type === preferredPropertyType) score += 2;
+      if (String(item.city_id) === preferredCityId) score += 2;
+      if (avgPrice > 0) score += Math.max(0, 1 - Math.abs(item.price - avgPrice) / avgPrice) * 2;
+      if (avgRooms > 0) score += Math.max(0, 1 - Math.abs(parseFloat(item.rooms) - avgRooms) / avgRooms) * 1;
+      return { ...item, match_score: Math.round(score * 10) };
+    });
+    scored.sort((a, b) => b.match_score - a.match_score);
+
+    res.json({ listings: scored.slice(0, 50), personalized: true });
+  } catch (err) {
+    console.error('Recommended error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Изменить цену и/или причину продажи уже опубликованного объявления.
 // Каждое реальное изменение цены пишется в listing_price_history — на её
 // основе строится история цены и статистика снижений на детальной странице.
