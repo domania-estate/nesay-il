@@ -29,7 +29,8 @@ router.get('/', optionalAuth, async (req, res) => {
         u.name AS agent_name, u.verified AS agent_verified, u.role AS agent_role, u.avatar_url AS agent_avatar,
         (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS cover_photo,
         (SELECT json_agg(url ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS all_photos,
-        (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) AS fav_count
+        (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) AS fav_count,
+        (SELECT json_agg(json_build_object('price', price, 'recordedAt', recorded_at) ORDER BY recorded_at) FROM listing_price_history WHERE listing_id = l.id) AS price_history
       FROM listings l
       JOIN cities c ON c.id = l.city_id
       JOIN users  u ON u.id = l.user_id
@@ -51,7 +52,8 @@ router.get('/my/all', requireAuth, async (req, res) => {
       SELECT l.*, c.name AS city_name,
         (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS cover_photo,
         (SELECT json_agg(url ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS all_photos,
-        (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) AS fav_count
+        (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) AS fav_count,
+        (SELECT json_agg(json_build_object('price', price, 'recordedAt', recorded_at) ORDER BY recorded_at) FROM listing_price_history WHERE listing_id = l.id) AS price_history
       FROM listings l
       JOIN cities c ON c.id = l.city_id
       WHERE l.user_id = $1 AND l.status != 'removed'
@@ -105,7 +107,7 @@ async function verifyPrice(cityId, dealType, price, rooms) {
 
 // Создать объявление
 router.post('/', requireAuth, async (req, res) => {
-  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description, condition, furnished, pets_allowed, seller_type, utilities } = req.body;
+  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description, condition, furnished, pets_allowed, seller_type, utilities, sale_reason } = req.body;
   if (!deal_type || !price) return res.status(400).json({ error: 'Укажите тип сделки и цену' });
   if (req.user.role === 'buyer') return res.status(403).json({ error: 'Покупатели не могут публиковать' });
 
@@ -127,8 +129,8 @@ router.post('/', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(`
-        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities, sale_reason)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
         RETURNING *
       `, [
         req.user.id, parseInt(city_id) || 1, deal_type, property_type || 'apartment',
@@ -139,10 +141,14 @@ router.post('/', requireAuth, async (req, res) => {
         JSON.stringify(description || {}),
         status, moderationReason,
         condition || null, furnished || null, pets_allowed || null, seller_type || null,
-        JSON.stringify(utilities || {})
+        JSON.stringify(utilities || {}), sale_reason || null
       ]);
       // Снимаем 100 шекелей за публикацию
       await client.query('UPDATE users SET credits = credits - 100 WHERE id = $1', [req.user.id]);
+      // Первая точка в истории цены — чтобы отсчёт "цена снижена на X%" был от даты публикации
+      await client.query('INSERT INTO listing_price_history (listing_id, price, recorded_at) VALUES ($1, $2, $3)', [
+        result.rows[0].id, result.rows[0].price, result.rows[0].created_at,
+      ]);
       await client.query('COMMIT');
       console.log('✅ Listing created:', result.rows[0].id, 'status:', status);
       res.status(201).json({ ...result.rows[0], pending: status === 'pending_review' });
@@ -285,6 +291,45 @@ router.get('/favorites/mine', requireAuth, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// Изменить цену и/или причину продажи уже опубликованного объявления.
+// Каждое реальное изменение цены пишется в listing_price_history — на её
+// основе строится история цены и статистика снижений на детальной странице.
+router.put('/:id', requireAuth, async (req, res) => {
+  const { price, sale_reason } = req.body;
+  try {
+    const current = await db.query('SELECT price, user_id FROM listings WHERE id = $1', [req.params.id]);
+    if (!current.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    if (current.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Это не ваше объявление' });
+
+    const newPrice = price !== undefined ? parseInt(price) : current.rows[0].price;
+    if (price !== undefined && (!Number.isFinite(newPrice) || newPrice <= 0)) {
+      return res.status(400).json({ error: 'Некорректная цена' });
+    }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        'UPDATE listings SET price = $1, sale_reason = COALESCE($2, sale_reason), updated_at = NOW() WHERE id = $3 AND user_id = $4 RETURNING *',
+        [newPrice, sale_reason ?? null, req.params.id, req.user.id]
+      );
+      if (newPrice !== current.rows[0].price) {
+        await client.query('INSERT INTO listing_price_history (listing_id, price) VALUES ($1, $2)', [req.params.id, newPrice]);
+      }
+      await client.query('COMMIT');
+      res.json(result.rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Update listing error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
