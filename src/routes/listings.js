@@ -300,7 +300,7 @@ router.get('/favorites/mine', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   const { price, sale_reason } = req.body;
   try {
-    const current = await db.query('SELECT price, user_id FROM listings WHERE id = $1', [req.params.id]);
+    const current = await db.query('SELECT price, user_id, created_at FROM listings WHERE id = $1', [req.params.id]);
     if (!current.rows.length) return res.status(404).json({ error: 'Не найдено' });
     if (current.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Это не ваше объявление' });
 
@@ -317,6 +317,15 @@ router.put('/:id', requireAuth, async (req, res) => {
         [newPrice, sale_reason ?? null, req.params.id, req.user.id]
       );
       if (newPrice !== current.rows[0].price) {
+        // Старые объявления (созданные до этой фичи) не имеют стартовой точки
+        // истории — без неё "история" из одного изменения не имеет смысла.
+        // Добавляем её задним числом (дата публикации, старая цена).
+        const existingHistory = await client.query('SELECT 1 FROM listing_price_history WHERE listing_id = $1 LIMIT 1', [req.params.id]);
+        if (!existingHistory.rows.length) {
+          await client.query('INSERT INTO listing_price_history (listing_id, price, recorded_at) VALUES ($1, $2, $3)', [
+            req.params.id, current.rows[0].price, current.rows[0].created_at,
+          ]);
+        }
         await client.query('INSERT INTO listing_price_history (listing_id, price) VALUES ($1, $2)', [req.params.id, newPrice]);
       }
       await client.query('COMMIT');
