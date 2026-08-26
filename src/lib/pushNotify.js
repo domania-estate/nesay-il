@@ -53,12 +53,17 @@ async function sendExpoPush(tokens, title, body, data) {
 // объект, и рассылает им push. Не уведомляет автора его же подпиской.
 async function notifyMatchingSearches(listing) {
   try {
+    // saved_searches исторически используется и другой (не нашей) фичей —
+    // строки с ключом activeFilters это чужой формат ("сохранить поиск" на
+    // экране списка), у него нет ни одного из наших полей фильтра, поэтому
+    // matchesSearch посчитал бы его подходящим под ЛЮБОЕ объявление. Явно
+    // исключаем такие строки, чтобы не спамить их владельцев.
     const result = await db.query(
-      'SELECT ss.user_id, ss.filters, array_agg(pt.token) AS tokens ' +
-      'FROM saved_searches ss ' +
-      'JOIN push_tokens pt ON pt.user_id = ss.user_id ' +
-      'WHERE ss.user_id != $1 AND ss.enabled = true ' +
-      'GROUP BY ss.user_id, ss.id, ss.filters',
+      "SELECT ss.user_id, ss.filters, array_agg(pt.token) AS tokens " +
+      "FROM saved_searches ss " +
+      "JOIN push_tokens pt ON pt.user_id = ss.user_id " +
+      "WHERE ss.user_id != $1 AND ss.enabled = true AND NOT (ss.filters ? 'activeFilters') " +
+      "GROUP BY ss.user_id, ss.id, ss.filters",
       [listing.user_id]
     );
     const cityRow = await db.query('SELECT name FROM cities WHERE id = $1', [listing.city_id]);
