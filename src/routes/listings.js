@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../../config/db');
 const { requireAuth, optionalAuth, requireModerator } = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
+const { notifyMatchingSearches } = require('../lib/pushNotify');
 
 const router = express.Router();
 
@@ -151,6 +152,7 @@ router.post('/', requireAuth, async (req, res) => {
       ]);
       await client.query('COMMIT');
       console.log('✅ Listing created:', result.rows[0].id, 'status:', status);
+      if (status === 'active') notifyMatchingSearches(result.rows[0]);
       res.status(201).json({ ...result.rows[0], pending: status === 'pending_review' });
     } catch (err) {
       await client.query('ROLLBACK');
@@ -476,10 +478,11 @@ router.get('/moderation/pending', requireModerator, async (req, res) => {
 router.post('/:id/approve', requireModerator, async (req, res) => {
   try {
     const result = await db.query(
-      "UPDATE listings SET status = 'active', moderation_reason = NULL WHERE id = $1 AND status = 'pending_review' RETURNING id",
+      "UPDATE listings SET status = 'active', moderation_reason = NULL WHERE id = $1 AND status = 'pending_review' RETURNING *",
       [req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    notifyMatchingSearches(result.rows[0]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -536,4 +539,23 @@ router.delete('/saved-searches/:id', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка' });
   }
 });
+
+// Зарегистрировать push-токен устройства (вызывается при каждом запуске
+// приложения — ON CONFLICT просто обновляет владельца, если токен уже
+// был привязан к другому аккаунту на этом же устройстве)
+router.post('/push-tokens', requireAuth, async (req, res) => {
+  try {
+    const { token, platform } = req.body;
+    if (!token) return res.status(400).json({ error: 'Нет токена' });
+    await db.query(
+      'INSERT INTO push_tokens (user_id, token, platform) VALUES ($1, $2, $3) ' +
+      'ON CONFLICT (token) DO UPDATE SET user_id = $1, platform = $3',
+      [req.user.id, token, platform || null]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
 module.exports = router;
