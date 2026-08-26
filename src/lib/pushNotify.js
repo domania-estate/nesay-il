@@ -18,6 +18,14 @@ function matchesSearch(listing, filters) {
   if (filters.priceMin != null && listing.price < filters.priceMin) return false;
   if (filters.priceMax != null && listing.price > filters.priceMax) return false;
   if (filters.roomsMin != null && listing.rooms < filters.roomsMin) return false;
+  if (filters.furnished === 'yes' && (!listing.furnished || listing.furnished === 'none')) return false;
+  if (filters.furnished === 'no' && listing.furnished !== 'none') return false;
+  if (filters.pets === 'allowed' && (!listing.pets_allowed || listing.pets_allowed === 'no')) return false;
+  if (filters.pets === 'not_allowed' && listing.pets_allowed !== 'no') return false;
+  // "Комиссия" — не отдельное поле в объявлении, а честный признак: объявления
+  // от агентов почти всегда с комиссией, от собственников — почти всегда без.
+  if (filters.commission === 'without' && listing.sellerRole === 'agent') return false;
+  if (filters.commission === 'with' && listing.sellerRole !== 'agent') return false;
   if (filters.polygon && filters.polygon.length >= 3) {
     if (listing.lat == null || listing.lng == null) return false;
     return isPointInPolygon([listing.lng, listing.lat], filters.polygon);
@@ -49,18 +57,20 @@ async function notifyMatchingSearches(listing) {
       'SELECT ss.user_id, ss.filters, array_agg(pt.token) AS tokens ' +
       'FROM saved_searches ss ' +
       'JOIN push_tokens pt ON pt.user_id = ss.user_id ' +
-      'WHERE ss.user_id != $1 ' +
+      'WHERE ss.user_id != $1 AND ss.enabled = true ' +
       'GROUP BY ss.user_id, ss.id, ss.filters',
       [listing.user_id]
     );
     const cityRow = await db.query('SELECT name FROM cities WHERE id = $1', [listing.city_id]);
     const cityName = cityRow.rows[0]?.name?.ru || cityRow.rows[0]?.name?.en || '';
     const priceText = `₪${Number(listing.price).toLocaleString('ru-RU')}`;
+    const sellerRow = await db.query('SELECT role FROM users WHERE id = $1', [listing.user_id]);
+    const listingWithSeller = { ...listing, sellerRole: sellerRow.rows[0]?.role || null };
 
     const tokensToNotify = new Set();
     for (const row of result.rows) {
       const filters = row.filters || {};
-      if (matchesSearch(listing, filters)) {
+      if (matchesSearch(listingWithSeller, filters)) {
         (row.tokens || []).filter(Boolean).forEach((t) => tokensToNotify.add(t));
       }
     }

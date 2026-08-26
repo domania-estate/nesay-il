@@ -508,7 +508,7 @@ router.post('/:id/reject', requireModerator, async (req, res) => {
 router.get('/saved-searches', requireAuth, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, name, filters, created_at FROM saved_searches WHERE user_id = $1 ORDER BY created_at DESC',
+      'SELECT id, name, filters, enabled, created_at FROM saved_searches WHERE user_id = $1 ORDER BY created_at DESC',
       [req.user.id]
     );
     res.json(result.rows);
@@ -522,9 +522,23 @@ router.post('/saved-searches', requireAuth, async (req, res) => {
     const { name, filters } = req.body;
     if (!name || !filters) return res.status(400).json({ error: 'Не хватает данных' });
     const result = await db.query(
-      'INSERT INTO saved_searches (user_id, name, filters) VALUES ($1, $2, $3) RETURNING id, name, filters, created_at',
+      'INSERT INTO saved_searches (user_id, name, filters) VALUES ($1, $2, $3) RETURNING id, name, filters, enabled, created_at',
       [req.user.id, name, JSON.stringify(filters)]
     );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+// Включить/выключить сохранённый поиск (пауза без удаления)
+router.patch('/saved-searches/:id', requireAuth, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    const result = await db.query(
+      'UPDATE saved_searches SET enabled = $1 WHERE id = $2 AND user_id = $3 RETURNING id, enabled',
+      [!!enabled, req.params.id, req.user.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Ошибка' });
