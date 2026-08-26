@@ -572,4 +572,31 @@ router.post('/push-tokens', requireAuth, async (req, res) => {
   }
 });
 
+// Одно объявление по ID — нужен для прямой ссылки на сайте (мобильное
+// приложение до сих пор просто ищет объект в уже загруженном общем списке,
+// но для веба это не годится: нужна страница, которая открывается напрямую).
+// Регистрируем строго ПОСЛЕ всех однословных GET-роутов выше (/recommended,
+// /saved-searches, /favorite-lists и т.д.) — иначе этот маршрут перехватил
+// бы их, приняв, например, "recommended" за :id.
+router.get('/:id', optionalAuth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT l.*, c.name AS city_name,
+        u.name AS agent_name, u.verified AS agent_verified, u.role AS agent_role, u.avatar_url AS agent_avatar,
+        (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS cover_photo,
+        (SELECT json_agg(url ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS all_photos,
+        (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) AS fav_count,
+        (SELECT json_agg(json_build_object('price', price, 'recordedAt', recorded_at) ORDER BY recorded_at) FROM listing_price_history WHERE listing_id = l.id) AS price_history
+      FROM listings l
+      JOIN cities c ON c.id = l.city_id
+      JOIN users  u ON u.id = l.user_id
+      WHERE l.id = $1 AND l.status = 'active'
+    `, [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Объявление не найдено' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 module.exports = router;
