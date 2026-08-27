@@ -112,9 +112,26 @@ async function verifyPrice(cityId, dealType, price, rooms) {
 
 // Создать объявление
 router.post('/', requireAuth, async (req, res) => {
-  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, description, condition, furnished, pets_allowed, seller_type, utilities, sale_reason } = req.body;
-  if (!deal_type || !price) return res.status(400).json({ error: 'Укажите тип сделки и цену' });
+  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, floor, total_floors, description, condition, furnished, pets_allowed, seller_type, utilities, sale_reason } = req.body;
   if (req.user.role === 'buyer') return res.status(403).json({ error: 'Покупатели не могут публиковать' });
+
+  // Полная карточка объявления обязательна — без неё покупатель не может
+  // адекватно оценить объект (см. решение сделать все ключевые поля
+  // обязательными при публикации).
+  const missing = [];
+  if (!deal_type) missing.push('тип сделки');
+  if (!city_id) missing.push('город');
+  if (!street || !String(street).trim()) missing.push('улица');
+  if (!price) missing.push('цена');
+  if (!rooms) missing.push('количество комнат');
+  if (!sqm) missing.push('площадь');
+  if (!floor) missing.push('этаж');
+  if (!total_floors) missing.push('этажей в доме');
+  if (!condition) missing.push('состояние ремонта');
+  if (!furnished) missing.push('мебель');
+  if (!pets_allowed) missing.push('животные');
+  if (!description || !String(description.ru || '').trim()) missing.push('описание');
+  if (missing.length) return res.status(400).json({ error: `Заполните обязательные поля: ${missing.join(', ')}` });
 
   try {
     const userResult = await db.query('SELECT credits, verified FROM users WHERE id = $1', [req.user.id]);
@@ -144,12 +161,13 @@ router.post('/', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(`
-        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities, sale_reason)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, floor, total_floors, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities, sale_reason)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
         RETURNING *
       `, [
         req.user.id, parseInt(city_id) || 1, deal_type, property_type || 'apartment',
         street || null, house_number || null,
+        parseInt(floor), parseInt(total_floors),
         parseFloat(lat) || null, parseFloat(lng) || null,
         parseInt(price), parseFloat(rooms) || 1,
         sqm ? parseInt(sqm) : null,
