@@ -3,6 +3,8 @@ const db = require('../../config/db');
 const { requireAuth, optionalAuth, requireModerator } = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 const { notifyMatchingSearches } = require('../lib/pushNotify');
+const { computeDHash } = require('../lib/imageHash');
+const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone } = require('../lib/fraudChecks');
 
 const router = express.Router();
 
@@ -117,12 +119,20 @@ router.post('/', requireAuth, async (req, res) => {
     const credits = userResult.rows[0]?.credits || 0;
     if (credits < 100) return res.status(402).json({ error: 'Недостаточно средств. Минимум ₪100 для публикации' });
 
-    // Автомодерация: проверяем адрес и цену
+    // Автомодерация: проверяем адрес, цену и признаки фейкового объявления
+    // (тот же адрес у чужого аккаунта, тот же телефон на другом аккаунте).
+    // Проверку одинаковых фото делаем отдельно, при загрузке фото — на этом
+    // шаге их ещё нет.
+    const userRow = await db.query('SELECT phone FROM users WHERE id = $1', [req.user.id]);
     const addrCheck = await verifyAddress(lat, lng);
     const priceCheck = await verifyPrice(parseInt(city_id) || 1, deal_type, parseInt(price), rooms);
+    const dupAddressCheck = await checkDuplicateAddress(null, req.user.id, parseInt(city_id) || 1, street, house_number, parseFloat(lat), parseFloat(lng));
+    const phoneCheck = await checkRepeatedPhone(req.user.id, userRow.rows[0]?.phone);
     const reasons = [];
     if (!addrCheck.ok) reasons.push(addrCheck.reason);
     if (!priceCheck.ok) reasons.push(priceCheck.reason);
+    if (!dupAddressCheck.ok) reasons.push(dupAddressCheck.reason);
+    if (!phoneCheck.ok) reasons.push(phoneCheck.reason);
     const status = reasons.length ? 'pending_review' : 'active';
     const moderationReason = reasons.length ? reasons.join('; ') : null;
 
@@ -175,6 +185,7 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
 
   try {
     const urls = [];
+    const hashes = [];
     for (let i = 0; i < photos.length; i++) {
       const base64 = photos[i];
       const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -187,9 +198,28 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       if (error) { console.error('Upload error:', error); continue; }
       const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName);
       urls.push(urlData.publicUrl);
-      await db.query('INSERT INTO listing_photos (listing_id, url, sort_order) VALUES ($1, $2, $3)', [req.params.id, urlData.publicUrl, i]);
+
+      // Перцептивный хэш — не блокируем загрузку, если он не посчитался
+      // (повреждённый файл и т.п.), просто не участвует в проверке дублей.
+      let phash = null;
+      try { phash = await computeDHash(data); if (phash) hashes.push(phash); } catch (e) { console.error('dHash error:', e); }
+
+      await db.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [req.params.id, urlData.publicUrl, i, phash]);
     }
-    res.json({ urls });
+
+    // Похожие фото у другого продавца — переводим объявление на ручную
+    // проверку, даже если оно уже было опубликовано как активное.
+    const dupPhotoCheck = await checkDuplicatePhotos(req.params.id, req.user.id, hashes);
+    if (!dupPhotoCheck.ok) {
+      await db.query(`
+        UPDATE listings
+        SET status = 'pending_review',
+            moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
+        WHERE id = $1
+      `, [req.params.id, dupPhotoCheck.reason]);
+    }
+
+    res.json({ urls, flagged: !dupPhotoCheck.ok });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка загрузки фото' });
   }
