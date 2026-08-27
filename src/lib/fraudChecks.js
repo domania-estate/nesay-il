@@ -9,20 +9,25 @@ const { hammingDistance } = require('./imageHash');
 ///ресайз даёт разницу в единицы бит, разные фото — обычно 20+.
 const DHASH_MATCH_THRESHOLD = 8;
 
-// Похожие/переиспользованные фото у ДРУГИХ продавцов — типичный признак
-// скопированного объявления (фото стянуты с другого сайта/объявления).
-async function checkDuplicatePhotos(listingId, userId, newHashes) {
+// Похожие/переиспользованные фото в других объявлениях — признак либо
+// скопированного чужого объявления, либо массовой публикации одинаковых
+// карточек одним и тем же продавцом.
+async function checkDuplicatePhotos(listingId, newHashes) {
   if (!newHashes || newHashes.length === 0) return { ok: true };
   try {
+    // Не исключаем объявления того же продавца: одно и то же фото в разных
+    // карточках — это либо перепост чужого объявления (другой user_id), либо
+    // массовая публикация одинаковых "объявлений" от одного и того же
+    // продавца — оба случая одинаково подозрительны и должны попадать
+    // на ручную проверку.
     const rows = await db.query(`
       SELECT lp.phash, lp.listing_id
       FROM listing_photos lp
       JOIN listings l ON l.id = lp.listing_id
       WHERE lp.phash IS NOT NULL
         AND lp.listing_id != $1
-        AND l.user_id != $2
         AND l.status IN ('active', 'pending_review')
-    `, [listingId, userId]);
+    `, [listingId]);
 
     const matchedListingIds = new Set();
     for (const hash of newHashes) {

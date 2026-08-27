@@ -209,7 +209,7 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
 
     // Похожие фото у другого продавца — переводим объявление на ручную
     // проверку, даже если оно уже было опубликовано как активное.
-    const dupPhotoCheck = await checkDuplicatePhotos(req.params.id, req.user.id, hashes);
+    const dupPhotoCheck = await checkDuplicatePhotos(req.params.id, hashes);
     if (!dupPhotoCheck.ok) {
       await db.query(`
         UPDATE listings
