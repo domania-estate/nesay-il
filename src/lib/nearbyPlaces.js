@@ -60,7 +60,11 @@ async function getNearby(lat, lng, lang, { useCacheOnly = false } = {}) {
         }),
       });
       const data = await r.json();
-      if (!r.ok) { results[catKey] = []; return; }
+      if (!r.ok) {
+        console.error('Nearby Places API error:', catKey, r.status, data.error?.message || JSON.stringify(data));
+        results[catKey] = [];
+        return;
+      }
       const places = (data.places || [])
         .map((p) => ({
           name: p.displayName?.text || '',
