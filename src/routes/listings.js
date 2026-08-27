@@ -5,6 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { notifyMatchingSearches } = require('../lib/pushNotify');
 const { computeDHash } = require('../lib/imageHash');
 const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity } = require('../lib/fraudChecks');
+const { checkPhotoContent } = require('../lib/photoModeration');
 
 const router = express.Router();
 
@@ -188,6 +189,7 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
   try {
     const urls = [];
     const hashes = [];
+    const contentChecks = [];
     for (let i = 0; i < photos.length; i++) {
       const base64 = photos[i];
       const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -207,21 +209,34 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       try { phash = await computeDHash(data); if (phash) hashes.push(phash); } catch (e) { console.error('dHash error:', e); }
 
       await db.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [req.params.id, urlData.publicUrl, i, phash]);
+
+      // Проверку содержимого (не скриншот/не по теме/неприемлемо) запускаем
+      // параллельно по всем фото, а не последовательно — иначе загрузка
+      // 5-10 фото растянется на десятки секунд.
+      contentChecks.push(checkPhotoContent(data, mimeType));
     }
 
-    // Похожие фото у другого продавца — переводим объявление на ручную
-    // проверку, даже если оно уже было опубликовано как активное.
+    // Похожие фото у другого продавца/этого же продавца — переводим
+    // объявление на ручную проверку, даже если оно уже было опубликовано.
     const dupPhotoCheck = await checkDuplicatePhotos(req.params.id, hashes);
-    if (!dupPhotoCheck.ok) {
+    const contentResults = await Promise.all(contentChecks);
+    const contentReasons = contentResults.filter((r) => !r.ok).map((r) => r.reason);
+
+    const allReasons = [];
+    if (!dupPhotoCheck.ok) allReasons.push(dupPhotoCheck.reason);
+    allReasons.push(...contentReasons);
+
+    if (allReasons.length > 0) {
+      const combined = allReasons.join('; ');
       await db.query(`
         UPDATE listings
         SET status = 'pending_review',
             moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
         WHERE id = $1
-      `, [req.params.id, dupPhotoCheck.reason]);
+      `, [req.params.id, combined]);
     }
 
-    res.json({ urls, flagged: !dupPhotoCheck.ok });
+    res.json({ urls, flagged: allReasons.length > 0 });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка загрузки фото' });
   }
