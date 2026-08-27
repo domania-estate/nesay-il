@@ -115,7 +115,14 @@ async function processListing(supabase, listing, cityName, imageCache) {
   return { id: listing.id, street: listing.street, houseNumber: listing.house_number, uploaded, description };
 }
 
-async function enrichDemoListings() {
+async function enrichDemoListings({ force = false } = {}) {
+  // force: удаляем уже сгенерированные нами фото (url содержит "enriched_") и
+  // пересоздаём — нужно, когда меняется сам водяной знак и старые фото нужно
+  // переснять с новым дизайном. Настоящие фото, загруженные пользователями,
+  // не трогаем (у них в пути нет "enriched_").
+  if (force) {
+    await db.query(`DELETE FROM listing_photos WHERE url LIKE '%/enriched_%'`);
+  }
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
   const { rows } = await db.query(`
     SELECT l.id, l.street, l.house_number, l.property_type, l.deal_type, l.rooms, l.condition, l.pets_allowed, l.furnished, c.name as city_name
@@ -137,4 +144,35 @@ async function enrichDemoListings() {
   return { total: rows.length, results };
 }
 
-module.exports = { enrichDemoListings };
+// Заполняет недостающие ключевые поля (этаж/этажность/ремонт/мебель/животные)
+// у уже существующих объявлений детерминированными "случайными" значениями
+// (на основе id объявления) — чтобы старые демо-карточки, созданные ещё до
+// того, как эти поля стали обязательными, тоже показывали полную информацию.
+const CONDITIONS = ['new', 'fresh', 'cosmetic', 'needs_repair'];
+const FURNISHED_OPTS = ['full', 'partial', 'none'];
+const PETS_OPTS = ['yes', 'no', 'small_dog', 'small_cat'];
+
+async function backfillListingDetails() {
+  const { rows } = await db.query(`
+    SELECT id, floor, total_floors, condition, furnished, pets_allowed
+    FROM listings
+    WHERE status = 'active' AND (floor IS NULL OR total_floors IS NULL OR condition IS NULL OR furnished IS NULL OR pets_allowed IS NULL)
+  `);
+  let updated = 0;
+  for (const row of rows) {
+    const seed = hashSeed(row.id);
+    const totalFloors = row.total_floors ?? (3 + (seed % 15));
+    const floor = row.floor ?? (1 + (Math.floor(seed / 7) % totalFloors));
+    const condition = row.condition ?? CONDITIONS[seed % CONDITIONS.length];
+    const furnished = row.furnished ?? FURNISHED_OPTS[Math.floor(seed / 3) % FURNISHED_OPTS.length];
+    const petsAllowed = row.pets_allowed ?? PETS_OPTS[Math.floor(seed / 5) % PETS_OPTS.length];
+    await db.query(
+      `UPDATE listings SET floor = $2, total_floors = $3, condition = $4, furnished = $5, pets_allowed = $6 WHERE id = $1`,
+      [row.id, floor, totalFloors, condition, furnished, petsAllowed]
+    );
+    updated++;
+  }
+  return { total: rows.length, updated };
+}
+
+module.exports = { enrichDemoListings, backfillListingDetails };

@@ -1,19 +1,34 @@
 const express = require('express');
 const db = require('../../config/db');
 const { requireModerator } = require('../middleware/auth');
-const { enrichDemoListings } = require('../lib/enrichListings');
+const { enrichDemoListings, backfillListingDetails } = require('../lib/enrichListings');
 
 const router = express.Router();
 
 // Разовое наполнение демо-объявлений без фото: качественные фото с
 // водяным знаком + более полное описание. Идемпотентно — трогает только
-// объявления, у которых ещё вообще нет ни одного фото.
+// объявления, у которых ещё вообще нет ни одного фото. ?force=1 — сначала
+// удаляет уже сгенерированные нами фото (например, чтобы переснять их с
+// новым дизайном водяного знака) и создаёт заново.
 router.post('/enrich-demo-listings', requireModerator, async (req, res) => {
   try {
-    const result = await enrichDemoListings();
+    const result = await enrichDemoListings({ force: req.query.force === '1' });
     res.json(result);
   } catch (err) {
     console.error('Enrich demo listings error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Заполняет недостающие этаж/этажность/ремонт/мебель/животные у уже
+// существующих объявлений — для тех, что были созданы до того, как эти
+// поля стали обязательными при публикации.
+router.post('/backfill-listing-details', requireModerator, async (req, res) => {
+  try {
+    const result = await backfillListingDetails();
+    res.json(result);
+  } catch (err) {
+    console.error('Backfill listing details error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
