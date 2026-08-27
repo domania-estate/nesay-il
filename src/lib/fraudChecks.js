@@ -100,4 +100,30 @@ async function checkRepeatedPhone(userId, phone) {
   }
 }
 
-module.exports = { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, DHASH_MATCH_THRESHOLD };
+// Массовая публикация: один аккаунт создаёт много объявлений за короткое
+// время — типичный признак спама/фейковых карточек, даже если фото и адреса
+// в каждой из них разные. Порог намеренно не слишком низкий: обычный агент,
+// выставляющий несколько квартир подряд, не должен попадать под подозрение
+// на пустом месте — а вот 4+ объявления за 20 минут с одного аккаунта уже
+// стоит показать модератору.
+const VELOCITY_WINDOW_MINUTES = 20;
+const VELOCITY_THRESHOLD = 4;
+
+async function checkListingVelocity(userId) {
+  try {
+    const rows = await db.query(
+      `SELECT COUNT(*) as cnt FROM listings WHERE user_id = $1 AND created_at > NOW() - INTERVAL '${VELOCITY_WINDOW_MINUTES} minutes'`,
+      [userId]
+    );
+    const cnt = parseInt(rows.rows[0].cnt, 10) + 1; // +1 — это объявление ещё не создано на момент проверки
+    if (cnt >= VELOCITY_THRESHOLD) {
+      return { ok: false, reason: `⚠️ Слишком много объявлений с одного аккаунта за короткое время (${cnt} за ${VELOCITY_WINDOW_MINUTES} мин.)` };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('checkListingVelocity error:', e);
+    return { ok: true };
+  }
+}
+
+module.exports = { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity, DHASH_MATCH_THRESHOLD };

@@ -4,7 +4,7 @@ const { requireAuth, optionalAuth, requireModerator } = require('../middleware/a
 const { createClient } = require('@supabase/supabase-js');
 const { notifyMatchingSearches } = require('../lib/pushNotify');
 const { computeDHash } = require('../lib/imageHash');
-const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone } = require('../lib/fraudChecks');
+const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity } = require('../lib/fraudChecks');
 
 const router = express.Router();
 
@@ -128,11 +128,13 @@ router.post('/', requireAuth, async (req, res) => {
     const priceCheck = await verifyPrice(parseInt(city_id) || 1, deal_type, parseInt(price), rooms);
     const dupAddressCheck = await checkDuplicateAddress(null, req.user.id, parseInt(city_id) || 1, street, house_number, parseFloat(lat), parseFloat(lng));
     const phoneCheck = await checkRepeatedPhone(req.user.id, userRow.rows[0]?.phone);
+    const velocityCheck = await checkListingVelocity(req.user.id);
     const reasons = [];
     if (!addrCheck.ok) reasons.push(addrCheck.reason);
     if (!priceCheck.ok) reasons.push(priceCheck.reason);
     if (!dupAddressCheck.ok) reasons.push(dupAddressCheck.reason);
     if (!phoneCheck.ok) reasons.push(phoneCheck.reason);
+    if (!velocityCheck.ok) reasons.push(velocityCheck.reason);
     const status = reasons.length ? 'pending_review' : 'active';
     const moderationReason = reasons.length ? reasons.join('; ') : null;
 
