@@ -1,20 +1,13 @@
-// Разовый скрипт: для демо-объявлений (сгенерированных ранее с шаблонным
-// описанием и без реальных фото) добавляет 4 качественных фото с водяным
-// знаком "Domania" и более полное, варьирующееся описание.
-require('dotenv').config();
-const { Pool } = require('pg');
-const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first');
+// Разовое наполнение демо-объявлений (без ни одного загруженного фото)
+// качественными фото с водяным знаком + более полным описанием. Живёт как
+// библиотека, а не отдельный скрипт, чтобы запускаться прямо на сервере —
+// там гарантированно верный SUPABASE_SERVICE_KEY (в отличие от локальной
+// копии .env, которая может быть устаревшей).
+const db = require('../../config/db');
 const { createClient } = require('@supabase/supabase-js');
-const { computeDHash } = require('../src/lib/imageHash');
-const { addWatermark } = require('../src/lib/watermark');
+const { computeDHash } = require('./imageHash');
+const { addWatermark } = require('./watermark');
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-
-// Пул качественных стоковых фото недвижимости (Unsplash, высокое разрешение).
-// Разбит по типам комнат, чтобы у каждого объявления была логичная подборка
-// (гостиная/кухня/спальня/санузел или экстерьер), а не случайный набор.
 const PHOTO_POOL = {
   living: [
     'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80',
@@ -41,7 +34,6 @@ const PHOTO_POOL = {
     'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=1600&q=80',
   ],
   exterior: [
-    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=80',
     'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=80',
     'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1600&q=80',
     'https://images.unsplash.com/photo-1449844908441-8829872d2607?w=1600&q=80',
@@ -75,18 +67,13 @@ function hashSeed(str) {
   return h;
 }
 
-async function processListing(listing, cityName, imageCache) {
+async function processListing(supabase, listing, cityName, imageCache) {
   const propertyType = listing.property_type;
-  const categories = propertyType === 'house' ? ['exterior', 'living', 'kitchen', 'bedroom', 'bathroom'] : ['living', 'kitchen', 'bedroom', 'bathroom'];
+  const categories = propertyType === 'house' ? ['exterior', 'living', 'kitchen', 'bedroom'] : ['living', 'kitchen', 'bedroom', 'bathroom'];
   const seed = hashSeed(listing.id);
-  const chosenUrls = [];
-  categories.forEach((cat, i) => {
-    const pool = seededShuffle(PHOTO_POOL[cat], seed + i);
-    chosenUrls.push(pool[0]);
-  });
-  const finalUrls = chosenUrls.slice(0, 4);
+  const finalUrls = categories.map((cat, i) => seededShuffle(PHOTO_POOL[cat], seed + i)[0]);
 
-  // Фото
+  let uploaded = 0;
   for (let i = 0; i < finalUrls.length; i++) {
     const srcUrl = finalUrls[i];
     let rawBuffer = imageCache.get(srcUrl);
@@ -101,10 +88,10 @@ async function processListing(listing, cityName, imageCache) {
     if (error) { console.error('Upload error for', listing.id, error.message); continue; }
     const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName);
     const phash = await computeDHash(watermarked).catch(() => null);
-    await pool.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [listing.id, urlData.publicUrl, i, phash]);
+    await db.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [listing.id, urlData.publicUrl, i, phash]);
+    uploaded++;
   }
 
-  // Описание
   const roomsNum = parseFloat(listing.rooms);
   const roomsTxt = propertyType === 'house' ? 'Дом' : `${roomsNum}-комнатная квартира`;
   const dealTxt = listing.deal_type === 'rent' ? 'аренды' : 'покупки';
@@ -117,35 +104,37 @@ async function processListing(listing, cityName, imageCache) {
     deal_txt: dealTxt,
   }).replace(/\s+/g, ' ').trim();
 
-  await pool.query(
-    `UPDATE listings SET description = jsonb_set(COALESCE(description, '{}'::jsonb), '{ru}', to_jsonb($2::text)) WHERE id = $1`,
+  // Описание трогаем только если оно ещё шаблонное/пустое — не затираем то,
+  // что реально написал продавец.
+  await db.query(
+    `UPDATE listings SET description = jsonb_set(COALESCE(description, '{}'::jsonb), '{ru}', to_jsonb($2::text))
+     WHERE id = $1 AND (description->>'ru' IS NULL OR description->>'ru' = '' OR description->>'ru' = 'Уютное жильё в хорошем районе.')`,
     [listing.id, description]
   );
 
-  console.log('OK:', listing.street, listing.house_number, '-', finalUrls.length, 'фото +', description.slice(0, 50) + '...');
+  return { id: listing.id, street: listing.street, houseNumber: listing.house_number, uploaded, description };
 }
 
-async function main() {
-  const { rows } = await pool.query(`
+async function enrichDemoListings() {
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  const { rows } = await db.query(`
     SELECT l.id, l.street, l.house_number, l.property_type, l.deal_type, l.rooms, l.condition, l.pets_allowed, l.furnished, c.name as city_name
     FROM listings l JOIN cities c ON c.id = l.city_id
-    WHERE l.status = 'active'
-      AND l.description->>'ru' = 'Уютное жильё в хорошем районе.'
+    WHERE l.status = 'active' AND NOT EXISTS (SELECT 1 FROM listing_photos WHERE listing_id = l.id)
     ORDER BY l.created_at ASC
   `);
-  console.log(`Найдено ${rows.length} демо-объявлений для обогащения`);
   const imageCache = new Map();
-  let done = 0;
+  const results = [];
   for (const row of rows) {
     try {
-      await processListing(row, row.city_name.ru || row.city_name.en, imageCache);
-      done++;
+      const r = await processListing(supabase, row, row.city_name.ru || row.city_name.en, imageCache);
+      results.push(r);
     } catch (e) {
       console.error('Ошибка для', row.id, e.message);
+      results.push({ id: row.id, error: e.message });
     }
   }
-  console.log(`Готово: обработано ${done} из ${rows.length}`);
-  await pool.end();
+  return { total: rows.length, results };
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+module.exports = { enrichDemoListings };

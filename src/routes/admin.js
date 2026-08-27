@@ -1,8 +1,22 @@
 const express = require('express');
 const db = require('../../config/db');
 const { requireModerator } = require('../middleware/auth');
+const { enrichDemoListings } = require('../lib/enrichListings');
 
 const router = express.Router();
+
+// Разовое наполнение демо-объявлений без фото: качественные фото с
+// водяным знаком + более полное описание. Идемпотентно — трогает только
+// объявления, у которых ещё вообще нет ни одного фото.
+router.post('/enrich-demo-listings', requireModerator, async (req, res) => {
+  try {
+    const result = await enrichDemoListings();
+    res.json(result);
+  } catch (err) {
+    console.error('Enrich demo listings error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 // Список всех пользователей со статистикой (для CRM модераторов)
 router.get('/users', requireModerator, async (req, res) => {
