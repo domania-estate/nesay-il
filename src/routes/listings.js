@@ -6,6 +6,7 @@ const { notifyMatchingSearches } = require('../lib/pushNotify');
 const { computeDHash } = require('../lib/imageHash');
 const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity } = require('../lib/fraudChecks');
 const { checkPhotoContent } = require('../lib/photoModeration');
+const { addWatermark } = require('../lib/watermark');
 
 const router = express.Router();
 
@@ -195,7 +196,15 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (!matches) continue;
       const mimeType = matches[1];
-      const data = Buffer.from(matches[2], 'base64');
+      const original = Buffer.from(matches[2], 'base64');
+
+      // Водяной знак накладываем сразу при загрузке — дальше everywhere
+      // (хэш для проверки дублей, показ в объявлении) работает уже с этой,
+      // финальной версией фото. Если наложение не удалось (битый файл и
+      // т.п.) — загружаем оригинал, не блокируем публикацию из-за этого.
+      let data = original;
+      try { data = await addWatermark(original); } catch (e) { console.error('Watermark error:', e); }
+
       const ext = mimeType.includes('png') ? 'png' : 'jpg';
       const fileName = `${req.params.id}/${Date.now()}_${i}.${ext}`;
       const { error } = await supabase.storage.from('photos').upload(fileName, data, { contentType: mimeType, upsert: true });
