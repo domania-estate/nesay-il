@@ -173,9 +173,18 @@ router.post('/', optionalAuth, async (req, res) => {
     let exact = true;
     if (candidates.length === 0) { candidates = await runQuery({ withCity: true, withPrice: true, withRooms: false }); exact = false; }
     if (candidates.length === 0) { candidates = await runQuery({ withCity: true, withPrice: false, withRooms: false }); exact = false; }
-    if (candidates.length === 0) { candidates = await runQuery({ withCity: false, withPrice: false, withRooms: false }); exact = false; }
+    // Город — не снимаем даже на самом слабом уровне: если пользователь искал
+    // конкретный город, показывать объекты из других городов бессмысленно и
+    // вводит в заблуждение. Если и без цены/комнат в этом городе ничего нет —
+    // это честный "ничего не найдено", а не повод игнорировать город целиком.
 
     const totalFound = candidates.length;
+
+    if (totalFound === 0) {
+      return res.json({
+        filters, exact: false, totalFound: 0, highMatchCount: 0, notFound: true, cityId, results: [],
+      });
+    }
 
     // Сначала текстовые критерии (дёшево, без внешних вызовов) — берём топ по
     // ним, и только для этого сокращённого списка проверяем near_* через кэш
@@ -219,6 +228,7 @@ router.post('/', optionalAuth, async (req, res) => {
       exact,
       totalFound,
       highMatchCount,
+      cityId,
       results: top.map((s) => ({ ...s.item, match_percent: s.matchPercent })),
     });
   } catch (err) {
