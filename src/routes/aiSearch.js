@@ -169,14 +169,15 @@ router.post('/', optionalAuth, async (req, res) => {
       return rows.rows;
     }
 
+    // Комнаты — единственный параметр, который можно ослаблять: это скорее
+    // пожелание, чем жёсткое условие. Город и цену НЕ снимаем ни на каком
+    // уровне — это то, что пользователь явно указал (например "до 2000"),
+    // и показывать объекты вне этих рамок как "почти то, что нужно" вводит
+    // в заблуждение. Если и без учёта комнат ничего нет — это честный
+    // "ничего не найдено", а не повод отбрасывать город или цену.
     let candidates = await runQuery({ withCity: true, withPrice: true, withRooms: true });
     let exact = true;
     if (candidates.length === 0) { candidates = await runQuery({ withCity: true, withPrice: true, withRooms: false }); exact = false; }
-    if (candidates.length === 0) { candidates = await runQuery({ withCity: true, withPrice: false, withRooms: false }); exact = false; }
-    // Город — не снимаем даже на самом слабом уровне: если пользователь искал
-    // конкретный город, показывать объекты из других городов бессмысленно и
-    // вводит в заблуждение. Если и без цены/комнат в этом городе ничего нет —
-    // это честный "ничего не найдено", а не повод игнорировать город целиком.
 
     const totalFound = candidates.length;
 
