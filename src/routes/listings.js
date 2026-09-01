@@ -57,6 +57,7 @@ router.get('/my/all', requireAuth, async (req, res) => {
       SELECT l.*, c.name AS city_name,
         (SELECT url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS cover_photo,
         (SELECT json_agg(url ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS all_photos,
+        (SELECT json_agg(json_build_object('id', id, 'url', url) ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS photos_detailed,
         (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) AS fav_count,
         (SELECT json_agg(json_build_object('price', price, 'recordedAt', recorded_at) ORDER BY recorded_at) FROM listing_price_history WHERE listing_id = l.id) AS price_history
       FROM listings l
@@ -206,10 +207,17 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
   if (!check.rows.length) return res.status(404).json({ error: 'Не найдено' });
 
   try {
+    // Если у объявления уже есть фото (добавляем ещё, а не публикуем впервые),
+    // продолжаем нумерацию после текущего максимума — иначе новые фото
+    // перезаписали бы порядок/обложку существующих (sort_order с нуля).
+    const maxOrderRes = await db.query('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM listing_photos WHERE listing_id = $1', [req.params.id]);
+    const startOrder = maxOrderRes.rows[0].max_order + 1;
+
     const urls = [];
     const hashes = [];
     const contentChecks = [];
     for (let i = 0; i < photos.length; i++) {
+      const sortOrder = startOrder + i;
       const base64 = photos[i];
       const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (!matches) continue;
@@ -235,7 +243,7 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       let phash = null;
       try { phash = await computeDHash(data); if (phash) hashes.push(phash); } catch (e) { console.error('dHash error:', e); }
 
-      await db.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [req.params.id, urlData.publicUrl, i, phash]);
+      await db.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [req.params.id, urlData.publicUrl, sortOrder, phash]);
 
       // Проверку содержимого (не скриншот/не по теме/неприемлемо) запускаем
       // параллельно по всем фото, а не последовательно — иначе загрузка
@@ -266,6 +274,27 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     res.json({ urls, flagged: allReasons.length > 0 });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка загрузки фото' });
+  }
+});
+
+// Удалить одно фото объявления
+router.delete('/:id/photos/:photoId', requireAuth, async (req, res) => {
+  try {
+    const owns = await db.query('SELECT id FROM listings WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    if (!owns.rows.length) return res.status(404).json({ error: 'Не найдено' });
+
+    const photo = await db.query('SELECT url FROM listing_photos WHERE id = $1 AND listing_id = $2', [req.params.photoId, req.params.id]);
+    if (!photo.rows.length) return res.status(404).json({ error: 'Фото не найдено' });
+
+    await db.query('DELETE FROM listing_photos WHERE id = $1', [req.params.photoId]);
+
+    const path = photo.rows[0].url.split('/photos/')[1];
+    if (path) await supabase.storage.from('photos').remove([path]).catch(() => {});
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete photo error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -462,7 +491,10 @@ router.get('/recommended', requireAuth, async (req, res) => {
 // Каждое реальное изменение цены пишется в listing_price_history — на её
 // основе строится история цены и статистика снижений на детальной странице.
 router.put('/:id', requireAuth, async (req, res) => {
-  const { price, sale_reason } = req.body;
+  const { price, sale_reason, description } = req.body;
+  if (description !== undefined && !String(description?.ru || '').trim()) {
+    return res.status(400).json({ error: 'Описание не может быть пустым' });
+  }
   try {
     const current = await db.query('SELECT price, user_id, created_at FROM listings WHERE id = $1', [req.params.id]);
     if (!current.rows.length) return res.status(404).json({ error: 'Не найдено' });
@@ -477,8 +509,8 @@ router.put('/:id', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(
-        'UPDATE listings SET price = $1, sale_reason = COALESCE($2, sale_reason), updated_at = NOW() WHERE id = $3 AND user_id = $4 RETURNING *',
-        [newPrice, sale_reason ?? null, req.params.id, req.user.id]
+        'UPDATE listings SET price = $1, sale_reason = COALESCE($2, sale_reason), description = COALESCE($3, description), updated_at = NOW() WHERE id = $4 AND user_id = $5 RETURNING *',
+        [newPrice, sale_reason ?? null, description ? JSON.stringify(description) : null, req.params.id, req.user.id]
       );
       if (newPrice !== current.rows[0].price) {
         // Старые объявления (созданные до этой фичи) не имеют стартовой точки
