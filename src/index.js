@@ -3,6 +3,9 @@ const express = require('express');
 const path    = require('path');
 
 const app = express();
+// За реальным IP клиента, а не адресом прокси Railway — нужно для
+// анти-фрод проверок реферальной программы (см. lib/referralGuard.js).
+app.set('trust proxy', 1);
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -37,6 +40,7 @@ app.get('/api/cities', async (req, res) => {
 // Один раз при старте докатываем список городов до полного официального
 // перечня городов Израиля (раньше в базе было только 15).
 require('./lib/seedCities').seedIsraeliCities();
+require('./lib/referralGuard').ensureReferralGuardSchema();
 
 // Геокодирование адреса через Google Maps API (ключ хранится только на
 // сервере, никогда не попадает во фронтенд-код)

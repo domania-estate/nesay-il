@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../../config/db');
 const { requireAuth: auth } = require('../middleware/auth');
+const { creditReferralIfEligible } = require('../lib/referralGuard');
 
 router.get('/my', auth, async (req, res) => {
   try {
@@ -23,10 +24,15 @@ router.post('/apply', auth, async (req, res) => {
     if (referrer.rows[0].id === req.user.id) return res.status(400).json({ error: 'Нельзя свой код' });
     const already = await db.query('SELECT id FROM referrals WHERE referred_id=$1', [req.user.id]);
     if (already.rows.length) return res.status(400).json({ error: 'Уже применён' });
+    const me = await db.query('SELECT signup_ip FROM users WHERE id=$1', [req.user.id]);
     await db.query('INSERT INTO referrals (referrer_id, referred_id, ref_code) VALUES ($1,$2,$3)', [referrer.rows[0].id, req.user.id, ref_code]);
-    await db.query('UPDATE users SET credits=credits+50 WHERE id=$1', [referrer.rows[0].id]);
-    await db.query('UPDATE users SET credits=credits+20, referred_by=$1 WHERE id=$2', [referrer.rows[0].id, req.user.id]);
-    await db.query('UPDATE referrals SET bonus_credited=true WHERE referred_id=$1', [req.user.id]);
+    await db.query('UPDATE users SET referred_by=$1 WHERE id=$2', [referrer.rows[0].id, req.user.id]);
+    await creditReferralIfEligible({
+      referrerId: referrer.rows[0].id,
+      referredId: req.user.id,
+      refCode: ref_code,
+      referredIp: me.rows[0]?.signup_ip || null,
+    });
     res.json({ success: true, message: '+20 кредитов начислено!' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

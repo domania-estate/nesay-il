@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const db      = require('../../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
+const { creditReferralIfEligible } = require('../lib/referralGuard');
 
 const router = express.Router();
 
@@ -125,13 +126,14 @@ router.post('/register', [
     }
 
     const result = await db.query(
-      `INSERT INTO users (email, password_hash, name, surname, phone, role, agency_data, client_data, owner_data, avatar_url, birth_date, credits, verified)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO users (email, password_hash, name, surname, phone, role, agency_data, client_data, owner_data, avatar_url, birth_date, credits, verified, signup_ip)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, email, name, role, credits`,
       [email, hash, name, surname || null, phone, role,
        agencyDataJson, clientDataJson, ownerDataJson, avatarUrl, birthDate || null,
        role === 'agent' ? 3 : 0,
-       role === 'agent' ? false : true] // агент — не верифицирован до проверки модератором
+       role === 'agent' ? false : true, // агент — не верифицирован до проверки модератором
+       req.ip || null]
     );
 
     const user = result.rows[0];
@@ -161,10 +163,14 @@ router.post('/register', [
         const referrer=await db.query('SELECT id FROM users WHERE ref_code=$1',[refFrom]);
         if(referrer.rows.length && referrer.rows[0].id!==user.id){
           await db.query('INSERT INTO referrals (referrer_id,referred_id,ref_code) VALUES ($1,$2,$3)',[referrer.rows[0].id,user.id,refFrom]);
-          await db.query('UPDATE users SET credits=credits+50 WHERE id=$1',[referrer.rows[0].id]);
-          await db.query('UPDATE users SET credits=credits+20,referred_by=$1 WHERE id=$2',[referrer.rows[0].id,user.id]);
-          await db.query('UPDATE referrals SET bonus_credited=true WHERE referred_id=$1',[user.id]);
-          console.log('referral recorded!');
+          await db.query('UPDATE users SET referred_by=$1 WHERE id=$2',[referrer.rows[0].id,user.id]);
+          const result = await creditReferralIfEligible({
+            referrerId: referrer.rows[0].id,
+            referredId: user.id,
+            refCode: refFrom,
+            referredIp: req.ip || null,
+          });
+          console.log('referral recorded:', result);
         }
       }catch(e){console.log('ref error',e.message);}
     }
