@@ -76,6 +76,36 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
+// Подсказки адресов при вводе (Google Places Autocomplete) — используются в
+// форме публикации объявления, чтобы не заставлять пользователя печатать
+// точный адрес вручную.
+app.get('/api/places-autocomplete', async (req, res) => {
+  const { q } = req.query;
+  if (!q || String(q).trim().length < 3) return res.json({ predictions: [] });
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) return res.status(503).json({ error: 'Автодополнение не настроено' });
+  try {
+    const params = new URLSearchParams({
+      input: q,
+      components: 'country:il',
+      language: 'ru',
+      types: 'address',
+      key,
+    });
+    const r = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`);
+    const data = await r.json();
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.log('🔍 Google autocomplete вернул:', data.status, data.error_message || '(без сообщения)');
+      return res.json({ predictions: [] });
+    }
+    const predictions = (data.predictions || []).map((p) => ({ description: p.description, placeId: p.place_id }));
+    res.json({ predictions });
+  } catch (err) {
+    console.error('Places autocomplete error:', err);
+    res.status(500).json({ error: 'Ошибка автодополнения' });
+  }
+});
+
 // Обратное геокодирование — по координатам определяем название улицы
 // (нужно для перетаскиваемого маркера в форме публикации)
 app.get('/api/reverse-geocode', async (req, res) => {
