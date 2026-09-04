@@ -24,7 +24,7 @@ router.post('/apply', auth, async (req, res) => {
     if (referrer.rows[0].id === req.user.id) return res.status(400).json({ error: 'Нельзя свой код' });
     const already = await db.query('SELECT id FROM referrals WHERE referred_id=$1', [req.user.id]);
     if (already.rows.length) return res.status(400).json({ error: 'Уже применён' });
-    const me = await db.query('SELECT signup_ip FROM users WHERE id=$1', [req.user.id]);
+    const me = await db.query('SELECT signup_ip, signup_device_id FROM users WHERE id=$1', [req.user.id]);
     await db.query('INSERT INTO referrals (referrer_id, referred_id, ref_code) VALUES ($1,$2,$3)', [referrer.rows[0].id, req.user.id, ref_code]);
     await db.query('UPDATE users SET referred_by=$1 WHERE id=$2', [referrer.rows[0].id, req.user.id]);
     await creditReferralIfEligible({
@@ -32,6 +32,7 @@ router.post('/apply', auth, async (req, res) => {
       referredId: req.user.id,
       refCode: ref_code,
       referredIp: me.rows[0]?.signup_ip || null,
+      referredDeviceId: me.rows[0]?.signup_device_id || null,
     });
     res.json({ success: true, message: '+20 кредитов начислено!' });
   } catch(e) { res.status(500).json({ error: e.message }); }

@@ -58,7 +58,7 @@ router.post('/register', [
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { email, password, name, surname, phone, role, agency_data, client, agent, owner, avatarBase64, avatarFileName, birthDate } = req.body;
+  const { email, password, name, surname, phone, role, agency_data, client, agent, owner, avatarBase64, avatarFileName, birthDate, device_id } = req.body;
 
   try {
     const existing = await db.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -126,14 +126,14 @@ router.post('/register', [
     }
 
     const result = await db.query(
-      `INSERT INTO users (email, password_hash, name, surname, phone, role, agency_data, client_data, owner_data, avatar_url, birth_date, credits, verified, signup_ip)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      `INSERT INTO users (email, password_hash, name, surname, phone, role, agency_data, client_data, owner_data, avatar_url, birth_date, credits, verified, signup_ip, signup_device_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING id, email, name, role, credits`,
       [email, hash, name, surname || null, phone, role,
        agencyDataJson, clientDataJson, ownerDataJson, avatarUrl, birthDate || null,
        role === 'agent' ? 3 : 0,
        role === 'agent' ? false : true, // агент — не верифицирован до проверки модератором
-       req.ip || null]
+       req.ip || null, device_id || null]
     );
 
     const user = result.rows[0];
@@ -169,6 +169,7 @@ router.post('/register', [
             referredId: user.id,
             refCode: refFrom,
             referredIp: req.ip || null,
+            referredDeviceId: device_id || null,
           });
           console.log('referral recorded:', result);
         }

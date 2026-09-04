@@ -11,6 +11,7 @@ const MAX_REWARDED_PER_IP = 2; // сколько раз с одного IP ра�
 async function ensureReferralGuardSchema() {
   try {
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip TEXT');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_device_id TEXT');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_credits_earned INTEGER NOT NULL DEFAULT 0');
     await db.query('ALTER TABLE referrals ADD COLUMN IF NOT EXISTS credit_skipped_reason TEXT');
   } catch (err) {
@@ -22,10 +23,10 @@ async function ensureReferralGuardSchema() {
 // его, если всё чисто. Приглашённый получает свой бонус всегда — он ни в чём
 // не виноват, штрафуем только реферера, если похоже на накрутку.
 // Возвращает { referrerCredited, referredCredited, reason }.
-async function creditReferralIfEligible({ referrerId, referredId, refCode, referredIp }) {
+async function creditReferralIfEligible({ referrerId, referredId, refCode, referredIp, referredDeviceId }) {
   let reason = null;
 
-  const referrerRow = await db.query('SELECT referral_credits_earned, signup_ip FROM users WHERE id=$1', [referrerId]);
+  const referrerRow = await db.query('SELECT referral_credits_earned, signup_ip, signup_device_id FROM users WHERE id=$1', [referrerId]);
   const referrer = referrerRow.rows[0];
 
   if (!referrer) {
@@ -38,7 +39,23 @@ async function creditReferralIfEligible({ referrerId, referredId, refCode, refer
     // Приглашённый регистрируется с того же IP, что и сам реферер — похоже на
     // самонакрутку через альтернативные аккаунты на своём же устройстве/сети.
     reason = 'same_ip_as_referrer';
-  } else if (referredIp) {
+  } else if (referredDeviceId && referrer.signup_device_id && referredDeviceId === referrer.signup_device_id) {
+    // То же самое, но по device-id (cookie/устройство) — ловит случай, когда
+    // IP меняется (VPN, мобильная сеть), а браузер/устройство то же самое.
+    reason = 'same_device_as_referrer';
+  } else if (referredDeviceId) {
+    const sameDeviceRewards = await db.query(
+      `SELECT COUNT(*) AS c FROM referrals r
+       JOIN users u ON u.id = r.referred_id
+       WHERE r.referrer_id = $1 AND r.bonus_credited = true AND u.signup_device_id = $2`,
+      [referrerId, referredDeviceId]
+    );
+    if (parseInt(sameDeviceRewards.rows[0].c, 10) >= MAX_REWARDED_PER_IP) {
+      reason = 'device_reward_limit';
+    }
+  }
+
+  if (!reason && referredIp) {
     const sameIpRewards = await db.query(
       `SELECT COUNT(*) AS c FROM referrals r
        JOIN users u ON u.id = r.referred_id
