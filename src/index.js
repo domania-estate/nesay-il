@@ -41,6 +41,7 @@ app.get('/api/cities', async (req, res) => {
 // перечня городов Израиля (раньше в базе было только 15).
 require('./lib/seedCities').seedIsraeliCities();
 require('./lib/referralGuard').ensureReferralGuardSchema();
+require('./lib/listingReports').ensureReportsSchema();
 
 // Резервный геокодер на OpenStreetMap/Nominatim — не требует ключа и
 // биллинга, используется, если Google Maps не настроен или ответил ошибкой
@@ -255,15 +256,29 @@ app.get('/api/places-autocomplete', async (req, res) => {
       }
       const found = await nominatimSearch(`${candidate}, Israel`, 6, lang);
       if (found.length) {
-        const predictions = found.map((item, i) => ({
-          description: item.formatted,
-          placeId: `nominatim-${i}-${item.lat}-${item.lng}`,
-          lat: item.lat,
-          lng: item.lng,
-          street: item.street,
-          houseNumber: item.houseNumber,
-          city: item.city,
-        }));
+        // Nominatim отдаёт "display_name" со всеми административными
+        // уровнями сразу (район, округ, индекс, страна) — человеку это
+        // читать незачем, показываем только "улица [дом], город".
+        const seen = new Set();
+        const predictions = [];
+        found.forEach((item, i) => {
+          const streetPart = item.houseNumber ? `${item.street} ${item.houseNumber}` : item.street;
+          const description = [streetPart, item.city].filter(Boolean).join(', ') || item.formatted;
+          // Один и тот же участок улицы в OSM часто разбит на несколько
+          // отрезков (у каждого свои координаты) — после упрощения текста
+          // они выглядели бы одинаково в списке, оставляем только первый.
+          if (seen.has(description)) return;
+          seen.add(description);
+          predictions.push({
+            description,
+            placeId: `nominatim-${i}-${item.lat}-${item.lng}`,
+            lat: item.lat,
+            lng: item.lng,
+            street: item.street,
+            houseNumber: item.houseNumber,
+            city: item.city,
+          });
+        });
         return res.json({ predictions });
       }
     }

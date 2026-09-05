@@ -7,6 +7,7 @@ const { computeDHash } = require('../lib/imageHash');
 const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity } = require('../lib/fraudChecks');
 const { checkPhotoContent } = require('../lib/photoModeration');
 const { addWatermark } = require('../lib/watermark');
+const { fileReport, REPORT_REASONS } = require('../lib/listingReports');
 
 const router = express.Router();
 
@@ -606,6 +607,24 @@ router.post('/:id/reject', requireModerator, async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Пожаловаться на объявление — один пользователь может пожаловаться на
+// конкретное объявление только один раз (UNIQUE в БД гасит повторы), а при
+// накоплении REPORT_THRESHOLD жалоб объявление само уходит на модерацию
+// и пропадает из публичного поиска (см. lib/listingReports.js).
+router.post('/:id/report', requireAuth, async (req, res) => {
+  const { reason } = req.body;
+  if (!REPORT_REASONS.includes(reason)) return res.status(400).json({ error: 'Укажите причину жалобы' });
+  try {
+    const check = await db.query('SELECT id FROM listings WHERE id = $1', [req.params.id]);
+    if (!check.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    const { added, flagged } = await fileReport(req.params.id, req.user.id, reason);
+    res.json({ success: true, alreadyReported: !added, flagged });
+  } catch (err) {
+    console.error('Report listing error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
