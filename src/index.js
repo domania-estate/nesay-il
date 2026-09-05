@@ -101,12 +101,17 @@ const KNOWN_STREET_NAMES = [
 ];
 
 function applyKnownStreetNames(text) {
+  // Регэкспы в KNOWN_STREET_NAMES с флагом /g — общие объекты на весь модуль,
+  // а .test() у них хранит lastIndex между вызовами: два запроса подряд к
+  // одному и тому же паттерну могут давать то true, то false в зависимости
+  // от того, где он "остановился" в прошлый раз. .replace() этой проблемы
+  // не имеет (сбрасывает позицию сам), поэтому сравниваем результат с
+  // исходной строкой вместо вызова .test().
   let result = text;
-  let changed = false;
   for (const [pattern, replacement] of KNOWN_STREET_NAMES) {
-    if (pattern.test(result)) { result = result.replace(pattern, replacement); changed = true; }
+    result = result.replace(pattern, replacement);
   }
-  return changed ? result : null;
+  return result !== text ? result : null;
 }
 
 function transliterationCandidates(text) {
@@ -187,13 +192,11 @@ app.get('/api/geocode', async (req, res) => {
   // ни у Google, ни у Nominatim, пробуем транслитерацию на латиницу.
   const candidates = [q, ...transliterationCandidates(q)];
   try {
-    if (key) {
-      for (const candidate of candidates) {
+    for (const candidate of candidates) {
+      if (key) {
         const results = await googleGeocode(candidate, lang, key);
         if (results) return res.json({ results });
       }
-    }
-    for (const candidate of candidates) {
       const results = await nominatimSearch(candidate, 5, lang);
       if (results.length) return res.json({ results });
     }
@@ -240,13 +243,16 @@ app.get('/api/places-autocomplete', async (req, res) => {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   const attempts = buildQueryAttempts(q, cityHint);
   try {
-    if (key) {
-      for (const candidate of attempts) {
+    // Важно пробовать Google и Nominatim ПО ОЧЕРЕДИ для каждого варианта
+    // запроса, а не сначала все варианты через Google, потом все через
+    // Nominatim — иначе неточный ответ Google без указания города (более
+    // поздний, но существующий) выигрывал бы у точного ответа Nominatim
+    // именно с этим городом (более ранний вариант в списке attempts).
+    for (const candidate of attempts) {
+      if (key) {
         const predictions = await googleAutocomplete(candidate, lang, key);
         if (predictions) return res.json({ predictions });
       }
-    }
-    for (const candidate of attempts) {
       const found = await nominatimSearch(`${candidate}, Israel`, 6, lang);
       if (found.length) {
         const predictions = found.map((item, i) => ({
