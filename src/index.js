@@ -47,13 +47,19 @@ require('./lib/referralGuard').ensureReferralGuardSchema();
 // (та же схема уже применяется в routes/listings.js для verifyAddress).
 const NOMINATIM_HEADERS = { 'User-Agent': 'NesayIL/1.0 (contact: novostitiktik@gmail.com)' };
 
+// Языки интерфейса сайта — те же 4, что в lib/i18n.ts на фронтенде.
+const GEOCODE_SUPPORTED_LANGS = ['ru', 'en', 'he', 'uk'];
+function safeGeocodeLang(lang) {
+  return GEOCODE_SUPPORTED_LANGS.includes(lang) ? lang : 'ru';
+}
+
 function pickNominatimCity(addr) {
   return addr.city || addr.town || addr.village || addr.residential || addr.suburb || '';
 }
 
-async function nominatimSearch(query, limit = 5) {
+async function nominatimSearch(query, limit = 5, lang = 'ru') {
   const params = new URLSearchParams({
-    q: query, format: 'jsonv2', addressdetails: '1', countrycodes: 'il', 'accept-language': 'ru', limit: String(limit),
+    q: query, format: 'jsonv2', addressdetails: '1', countrycodes: 'il', 'accept-language': lang, limit: String(limit),
   });
   const r = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, { headers: NOMINATIM_HEADERS });
   const data = await r.json();
@@ -67,8 +73,8 @@ async function nominatimSearch(query, limit = 5) {
   }));
 }
 
-async function nominatimReverse(lat, lng) {
-  const params = new URLSearchParams({ lat: String(lat), lon: String(lng), format: 'jsonv2', 'accept-language': 'ru' });
+async function nominatimReverse(lat, lng, lang = 'ru') {
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lng), format: 'jsonv2', 'accept-language': lang });
   const r = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, { headers: NOMINATIM_HEADERS });
   const data = await r.json();
   if (!data || data.error) return null;
@@ -86,10 +92,11 @@ async function nominatimReverse(lat, lng) {
 app.get('/api/geocode', async (req, res) => {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: 'Укажите адрес' });
+  const lang = safeGeocodeLang(req.query.lang);
   const key = process.env.GOOGLE_MAPS_API_KEY;
   try {
     if (key) {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&components=country:IL&language=ru&key=${key}`;
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&components=country:IL&language=${lang}&key=${key}`;
       const r = await fetch(url);
       const data = await r.json();
       if (data.status === 'OK' && data.results?.length) {
@@ -109,7 +116,7 @@ app.get('/api/geocode', async (req, res) => {
       }
       console.log('🔍 Google geocode вернул:', data.status, data.error_message || '(без сообщения)', '— пробуем Nominatim');
     }
-    const results = await nominatimSearch(q);
+    const results = await nominatimSearch(q, 5, lang);
     res.json({ results });
   } catch (err) {
     console.error('Geocode error:', err);
@@ -123,10 +130,11 @@ app.get('/api/geocode', async (req, res) => {
 app.get('/api/places-autocomplete', async (req, res) => {
   const { q } = req.query;
   if (!q || String(q).trim().length < 3) return res.json({ predictions: [] });
+  const lang = safeGeocodeLang(req.query.lang);
   const key = process.env.GOOGLE_MAPS_API_KEY;
   try {
     if (key) {
-      const params = new URLSearchParams({ input: q, components: 'country:il', language: 'ru', types: 'address', key });
+      const params = new URLSearchParams({ input: q, components: 'country:il', language: lang, types: 'address', key });
       const r = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`);
       const data = await r.json();
       if (data.status === 'OK' && data.predictions?.length) {
@@ -137,7 +145,7 @@ app.get('/api/places-autocomplete', async (req, res) => {
         console.log('🔍 Google autocomplete вернул:', data.status, data.error_message || '(без сообщения)', '— пробуем Nominatim');
       }
     }
-    const found = await nominatimSearch(`${q}, Israel`, 6);
+    const found = await nominatimSearch(`${q}, Israel`, 6, lang);
     const predictions = found.map((item, i) => ({
       description: item.formatted,
       placeId: `nominatim-${i}-${item.lat}-${item.lng}`,
@@ -159,10 +167,11 @@ app.get('/api/places-autocomplete', async (req, res) => {
 app.get('/api/reverse-geocode', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'Укажите координаты' });
+  const lang = safeGeocodeLang(req.query.lang);
   const key = process.env.GOOGLE_MAPS_API_KEY;
   try {
     if (key) {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ru&key=${key}`;
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=${lang}&key=${key}`;
       const r = await fetch(url);
       const data = await r.json();
       if (data.status === 'OK' && data.results?.length) {
@@ -180,7 +189,7 @@ app.get('/api/reverse-geocode', async (req, res) => {
       }
       console.log('🔍 Google reverse-geocode вернул:', data.status, data.error_message || '(без сообщения)', '— пробуем Nominatim');
     }
-    const result = await nominatimReverse(lat, lng);
+    const result = await nominatimReverse(lat, lng, lang);
     res.json({ result });
   } catch (err) {
     console.error('Reverse geocode error:', err);
