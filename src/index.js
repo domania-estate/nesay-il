@@ -57,6 +57,37 @@ function pickNominatimCity(addr) {
   return addr.city || addr.town || addr.village || addr.residential || addr.suburb || '';
 }
 
+// У Google/Nominatim кириллическая запись есть только у крупных/известных
+// улиц — большинство местных названий в Израиле проиндексированы лишь на
+// иврите и латинице. Если пользователь печатает по-русски (например
+// "Ха-Гашмонаим"), прямой поиск не находит ничего. Пробуем транслитерацию
+// на латиницу как запасной вариант — двумя способами, потому что в
+// разговорном русском Израиля и "х", и "г" часто передают ивритское "ה"/"ח"
+// (например "Герцль"/"Херцль" для Herzl).
+const CYRILLIC_RE = /[Ѐ-ӿ]/;
+const TRANSLIT_MAP = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i',
+  й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't',
+  у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y',
+  ь: '', э: 'e', ю: 'yu', я: 'ya', і: 'i', ї: 'yi', є: 'ye', ґ: 'g',
+};
+
+function transliterate(text, overrides = {}) {
+  const map = { ...TRANSLIT_MAP, ...overrides };
+  return text
+    .toLowerCase()
+    .split('')
+    .map((ch) => (map[ch] !== undefined ? map[ch] : ch))
+    .join('');
+}
+
+function transliterationCandidates(text) {
+  if (!CYRILLIC_RE.test(text)) return [];
+  const standard = transliterate(text);
+  const hebrewish = transliterate(text, { х: 'h', г: 'h' });
+  return [...new Set([hebrewish, standard])];
+}
+
 async function nominatimSearch(query, limit = 5, lang = 'ru') {
   const params = new URLSearchParams({
     q: query, format: 'jsonv2', addressdetails: '1', countrycodes: 'il', 'accept-language': lang, limit: String(limit),
@@ -87,6 +118,30 @@ async function nominatimReverse(lat, lng, lang = 'ru') {
   };
 }
 
+async function googleGeocode(address, lang, key) {
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:IL&language=${lang}&key=${key}`;
+  const r = await fetch(url);
+  const data = await r.json();
+  if (data.status === 'OK' && data.results?.length) {
+    return data.results.map(item => {
+      const comp = item.address_components || [];
+      const get = type => (comp.find(c => c.types.includes(type)) || {}).long_name || '';
+      return {
+        street: get('route'),
+        houseNumber: get('street_number'),
+        city: get('locality') || get('administrative_area_level_2'),
+        formatted: item.formatted_address,
+        lat: item.geometry.location.lat,
+        lng: item.geometry.location.lng
+      };
+    });
+  }
+  if (data.status !== 'ZERO_RESULTS') {
+    console.log('🔍 Google geocode вернул:', data.status, data.error_message || '(без сообщения)', 'для', address);
+  }
+  return null;
+}
+
 // Геокодирование адреса — пробуем Google Maps (точнее, но платный и требует
 // настроенного ключа), при отсутствии ключа или ошибке — Nominatim (бесплатно).
 app.get('/api/geocode', async (req, res) => {
@@ -94,30 +149,21 @@ app.get('/api/geocode', async (req, res) => {
   if (!q) return res.status(400).json({ error: 'Укажите адрес' });
   const lang = safeGeocodeLang(req.query.lang);
   const key = process.env.GOOGLE_MAPS_API_KEY;
+  // См. places-autocomplete — кириллической записи мелких улиц часто нет
+  // ни у Google, ни у Nominatim, пробуем транслитерацию на латиницу.
+  const candidates = [q, ...transliterationCandidates(q)];
   try {
     if (key) {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&components=country:IL&language=${lang}&key=${key}`;
-      const r = await fetch(url);
-      const data = await r.json();
-      if (data.status === 'OK' && data.results?.length) {
-        const results = data.results.map(item => {
-          const comp = item.address_components || [];
-          const get = type => (comp.find(c => c.types.includes(type)) || {}).long_name || '';
-          return {
-            street: get('route'),
-            houseNumber: get('street_number'),
-            city: get('locality') || get('administrative_area_level_2'),
-            formatted: item.formatted_address,
-            lat: item.geometry.location.lat,
-            lng: item.geometry.location.lng
-          };
-        });
-        return res.json({ results });
+      for (const candidate of candidates) {
+        const results = await googleGeocode(candidate, lang, key);
+        if (results) return res.json({ results });
       }
-      console.log('🔍 Google geocode вернул:', data.status, data.error_message || '(без сообщения)', '— пробуем Nominatim');
     }
-    const results = await nominatimSearch(q, 5, lang);
-    res.json({ results });
+    for (const candidate of candidates) {
+      const results = await nominatimSearch(candidate, 5, lang);
+      if (results.length) return res.json({ results });
+    }
+    res.json({ results: [] });
   } catch (err) {
     console.error('Geocode error:', err);
     res.status(500).json({ error: 'Ошибка геокодирования' });
@@ -127,35 +173,51 @@ app.get('/api/geocode', async (req, res) => {
 // Подсказки адресов при вводе — используются в форме публикации объявления,
 // чтобы не заставлять пользователя печатать точный адрес вручную.
 // Google Places Autocomplete, если ключ настроен, иначе Nominatim search.
+async function googleAutocomplete(input, lang, key) {
+  const params = new URLSearchParams({ input, components: 'country:il', language: lang, types: 'address', key });
+  const r = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`);
+  const data = await r.json();
+  if (data.status === 'OK' && data.predictions?.length) {
+    return data.predictions.map((p) => ({ description: p.description, placeId: p.place_id }));
+  }
+  if (data.status !== 'ZERO_RESULTS') {
+    console.log('🔍 Google autocomplete вернул:', data.status, data.error_message || '(без сообщения)', 'для', input);
+  }
+  return null;
+}
+
 app.get('/api/places-autocomplete', async (req, res) => {
   const { q } = req.query;
   if (!q || String(q).trim().length < 3) return res.json({ predictions: [] });
   const lang = safeGeocodeLang(req.query.lang);
   const key = process.env.GOOGLE_MAPS_API_KEY;
+  // Кириллическая запись есть у Google/Nominatim только для крупных улиц —
+  // если по исходному тексту ничего не нашлось, пробуем транслитерацию
+  // на латиницу (её обычно и использует OSM/Google для мелких улиц Израиля).
+  const candidates = [q, ...transliterationCandidates(q)];
   try {
     if (key) {
-      const params = new URLSearchParams({ input: q, components: 'country:il', language: lang, types: 'address', key });
-      const r = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`);
-      const data = await r.json();
-      if (data.status === 'OK' && data.predictions?.length) {
-        const predictions = data.predictions.map((p) => ({ description: p.description, placeId: p.place_id }));
-        return res.json({ predictions });
-      }
-      if (data.status !== 'ZERO_RESULTS') {
-        console.log('🔍 Google autocomplete вернул:', data.status, data.error_message || '(без сообщения)', '— пробуем Nominatim');
+      for (const candidate of candidates) {
+        const predictions = await googleAutocomplete(candidate, lang, key);
+        if (predictions) return res.json({ predictions });
       }
     }
-    const found = await nominatimSearch(`${q}, Israel`, 6, lang);
-    const predictions = found.map((item, i) => ({
-      description: item.formatted,
-      placeId: `nominatim-${i}-${item.lat}-${item.lng}`,
-      lat: item.lat,
-      lng: item.lng,
-      street: item.street,
-      houseNumber: item.houseNumber,
-      city: item.city,
-    }));
-    res.json({ predictions });
+    for (const candidate of candidates) {
+      const found = await nominatimSearch(`${candidate}, Israel`, 6, lang);
+      if (found.length) {
+        const predictions = found.map((item, i) => ({
+          description: item.formatted,
+          placeId: `nominatim-${i}-${item.lat}-${item.lng}`,
+          lat: item.lat,
+          lng: item.lng,
+          street: item.street,
+          houseNumber: item.houseNumber,
+          city: item.city,
+        }));
+        return res.json({ predictions });
+      }
+    }
+    res.json({ predictions: [] });
   } catch (err) {
     console.error('Places autocomplete error:', err);
     res.status(500).json({ error: 'Ошибка автодополнения' });
