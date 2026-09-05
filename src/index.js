@@ -81,14 +81,45 @@ function transliterate(text, overrides = {}) {
     .join('');
 }
 
+// Улицы, названные в честь исторических деятелей, есть почти в каждом
+// израильском городе — но их устоявшаяся английская запись часто вообще не
+// выводится побуквенной транслитерацией (Вейцман → Weizmann, а не Veytsman:
+// "В" здесь передаёт немецкое "W", что никакое фонетическое правило само
+// не восстановит). Держим короткий словарь самых частых имён.
+const KNOWN_STREET_NAMES = [
+  [/вейцман/gi, 'Weizmann'],
+  [/жаботинск/gi, 'Jabotinsk'],
+  [/ротшильд/gi, 'Rothschild'],
+  [/бялик/gi, 'Bialik'],
+  [/черниховск/gi, 'Chernichovsk'],
+  [/бен[- ]?иегуда/gi, 'Ben Yehuda'],
+  [/бен[- ]?гурион/gi, 'Ben Gurion'],
+  [/усышкин/gi, 'Ussishkin'],
+  [/герцл[ья]|херцл[ья]/gi, 'Herzl'],
+  [/алленби/gi, 'Allenby'],
+  [/дизенгоф/gi, 'Dizengoff'],
+];
+
+function applyKnownStreetNames(text) {
+  let result = text;
+  let changed = false;
+  for (const [pattern, replacement] of KNOWN_STREET_NAMES) {
+    if (pattern.test(result)) { result = result.replace(pattern, replacement); changed = true; }
+  }
+  return changed ? result : null;
+}
+
 function transliterationCandidates(text) {
   if (!CYRILLIC_RE.test(text)) return [];
+  const candidates = [];
+  const known = applyKnownStreetNames(text);
+  if (known) candidates.push(transliterate(known));
   // "ц" тоже неоднозначен — ивритское "צ" в устоявшейся английской записи
   // израильских улиц почти всегда "tz" (Havatzelet), а не научное "ts".
-  const hebrewishTz = transliterate(text, { х: 'h', г: 'h', ц: 'tz' });
-  const hebrewishTs = transliterate(text, { х: 'h', г: 'h' });
-  const standard = transliterate(text);
-  return [...new Set([hebrewishTz, hebrewishTs, standard])];
+  candidates.push(transliterate(text, { х: 'h', г: 'h', ц: 'tz' }));
+  candidates.push(transliterate(text, { х: 'h', г: 'h' }));
+  candidates.push(transliterate(text));
+  return [...new Set(candidates)];
 }
 
 async function nominatimSearch(query, limit = 5, lang = 'ru') {
@@ -189,23 +220,33 @@ async function googleAutocomplete(input, lang, key) {
   return null;
 }
 
+// Строим варианты запроса: сначала (если известен город из формы) пробуем
+// "улица, город" для точности — но если такая связка не находится (у части
+// улиц в OSM/Google почему-то не сматчена именно с этим городом, хотя сама
+// улица там точно есть), не сдаёмся, а пробуем те же варианты без города:
+// лучше показать все городские совпадения по всему Израилю, чем ничего.
+function buildQueryAttempts(q, cityHint) {
+  const candidates = [q, ...transliterationCandidates(q)];
+  const attempts = [];
+  if (cityHint) attempts.push(...candidates.map((c) => `${c}, ${cityHint}`));
+  attempts.push(...candidates);
+  return [...new Set(attempts)];
+}
+
 app.get('/api/places-autocomplete', async (req, res) => {
-  const { q } = req.query;
+  const { q, cityHint } = req.query;
   if (!q || String(q).trim().length < 3) return res.json({ predictions: [] });
   const lang = safeGeocodeLang(req.query.lang);
   const key = process.env.GOOGLE_MAPS_API_KEY;
-  // Кириллическая запись есть у Google/Nominatim только для крупных улиц —
-  // если по исходному тексту ничего не нашлось, пробуем транслитерацию
-  // на латиницу (её обычно и использует OSM/Google для мелких улиц Израиля).
-  const candidates = [q, ...transliterationCandidates(q)];
+  const attempts = buildQueryAttempts(q, cityHint);
   try {
     if (key) {
-      for (const candidate of candidates) {
+      for (const candidate of attempts) {
         const predictions = await googleAutocomplete(candidate, lang, key);
         if (predictions) return res.json({ predictions });
       }
     }
-    for (const candidate of candidates) {
+    for (const candidate of attempts) {
       const found = await nominatimSearch(`${candidate}, Israel`, 6, lang);
       if (found.length) {
         const predictions = found.map((item, i) => ({
