@@ -83,9 +83,12 @@ function transliterate(text, overrides = {}) {
 
 function transliterationCandidates(text) {
   if (!CYRILLIC_RE.test(text)) return [];
+  // "ц" тоже неоднозначен — ивритское "צ" в устоявшейся английской записи
+  // израильских улиц почти всегда "tz" (Havatzelet), а не научное "ts".
+  const hebrewishTz = transliterate(text, { х: 'h', г: 'h', ц: 'tz' });
+  const hebrewishTs = transliterate(text, { х: 'h', г: 'h' });
   const standard = transliterate(text);
-  const hebrewish = transliterate(text, { х: 'h', г: 'h' });
-  return [...new Set([hebrewish, standard])];
+  return [...new Set([hebrewishTz, hebrewishTs, standard])];
 }
 
 async function nominatimSearch(query, limit = 5, lang = 'ru') {
