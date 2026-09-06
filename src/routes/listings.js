@@ -380,14 +380,16 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       }
     }
 
-    const urls = [];
-    const hashes = [];
-    const contentChecks = [];
-    for (let i = 0; i < photos.length; i++) {
+    // Раньше каждое фото обрабатывалось (водяной знак → загрузка в Storage →
+    // хэш → запись в базу) ПОСЛЕДОВАТЕЛЬНО одно за другим — на 4 фото это
+    // легко растягивалось на десятки секунд и мобильное приложение получало
+    // "Сервер недоступен" по таймауту, хотя запрос на самом деле просто ещё
+    // выполнялся. Фото независимы друг от друга (разные имена файлов за
+    // счёт индекса i), поэтому обрабатываем их все параллельно.
+    const processed = await Promise.all(photos.map(async (base64, i) => {
       const sortOrder = startOrder + i;
-      const base64 = photos[i];
       const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-      if (!matches) continue;
+      if (!matches) return null;
       const mimeType = matches[1];
       const original = Buffer.from(matches[2], 'base64');
 
@@ -401,22 +403,25 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       const ext = mimeType.includes('png') ? 'png' : 'jpg';
       const fileName = `${req.params.id}/${Date.now()}_${i}.${ext}`;
       const { error } = await supabase.storage.from('photos').upload(fileName, data, { contentType: mimeType, upsert: true });
-      if (error) { console.error('Upload error:', error); continue; }
+      if (error) { console.error('Upload error:', error); return null; }
       const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName);
-      urls.push(urlData.publicUrl);
 
       // Перцептивный хэш — не блокируем загрузку, если он не посчитался
       // (повреждённый файл и т.п.), просто не участвует в проверке дублей.
       let phash = null;
-      try { phash = await computeDHash(data); if (phash) hashes.push(phash); } catch (e) { console.error('dHash error:', e); }
+      try { phash = await computeDHash(data); } catch (e) { console.error('dHash error:', e); }
 
       await db.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [req.params.id, urlData.publicUrl, sortOrder, phash]);
 
-      // Проверку содержимого (не скриншот/не по теме/неприемлемо) запускаем
-      // параллельно по всем фото, а не последовательно — иначе загрузка
-      // 5-10 фото растянется на десятки секунд.
-      contentChecks.push(checkPhotoContent(data, mimeType));
-    }
+      return { url: urlData.publicUrl, phash, data, mimeType };
+    }));
+
+    const successful = processed.filter(Boolean);
+    const urls = successful.map((p) => p.url);
+    const hashes = successful.filter((p) => p.phash).map((p) => p.phash);
+    // Проверку содержимого (не скриншот/не по теме/неприемлемо) — тоже
+    // параллельно по всем фото.
+    const contentChecks = successful.map((p) => checkPhotoContent(p.data, p.mimeType));
 
     // Похожие фото у другого продавца/этого же продавца — переводим
     // объявление на ручную проверку, даже если оно уже было опубликовано.
