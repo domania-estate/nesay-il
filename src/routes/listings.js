@@ -305,6 +305,41 @@ async function flagListingForPhotoReview(listingId, reason, { alreadyPrefixed = 
   }
 }
 
+// Отдельная, более строгая ветка — не для честных технических накладок
+// (дубль внутри своей же загрузки, маленькое разрешение), а для настоящего
+// нарушения правил: фото не по теме/неприемлемое содержимое (ИИ-проверка)
+// или чужое переиспользованное фото (дубль с другим продавцом). Тут только
+// одно предупреждение — при повторном нарушении объявление удаляется
+// навсегда, а деньги за публикацию не возвращаются (как и раньше, возврат
+// нигде не реализован — здесь просто явно доносим это до продавца).
+async function flagRuleViolation(listingId, reason) {
+  try {
+    const result = await db.query(`
+      UPDATE listings
+      SET rule_violation_count = rule_violation_count + 1,
+          moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
+      WHERE id = $1 AND status IN ('active', 'pending_review')
+      RETURNING rule_violation_count
+    `, [listingId, reason]);
+    if (!result.rows.length) return { isFinal: false };
+    const count = result.rows[0].rule_violation_count;
+    if (count >= 2) {
+      await db.query(`
+        UPDATE listings
+        SET status = 'rejected',
+            moderation_reason = moderation_reason || '; Объявление удалено навсегда: повторное нарушение правил публикации фото. Стоимость публикации не возвращается.'
+        WHERE id = $1
+      `, [listingId]);
+      return { isFinal: true };
+    }
+    await db.query(`UPDATE listings SET status = 'pending_review' WHERE id = $1`, [listingId]);
+    return { isFinal: false };
+  } catch (e) {
+    console.error('flagRuleViolation error:', e);
+    return { isFinal: false };
+  }
+}
+
 // Загрузить фото
 router.post('/:id/photos', requireAuth, async (req, res) => {
   const { photos } = req.body;
@@ -433,14 +468,14 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     if (!dupPhotoCheck.ok) allReasons.push(dupPhotoCheck.reason);
     allReasons.push(...contentReasons);
 
+    let ruleViolation = null;
     if (allReasons.length > 0) {
-      // Та же самая логика "2 промаха — блокировка", что и для дублей/
-      // маленького разрешения/меньше 4 фото при первой загрузке — раньше
-      // эта ветка (похожие фото у других продавцов, ИИ-проверка содержимого)
-      // жила отдельно и никогда не считалась и не блокировала, из-за чего
-      // объявление могло вечно висеть "на проверке" без конца.
+      // Настоящее нарушение правил (фото не по теме/неприемлемо, чужое
+      // переиспользованное фото) — не честная техническая накладка, поэтому
+      // строже: одно предупреждение, при повторе — объявление удаляется
+      // навсегда, без возврата денег за публикацию.
       const combined = allReasons.join('; ');
-      await flagListingForPhotoReview(req.params.id, combined, { alreadyPrefixed: true });
+      ruleViolation = await flagRuleViolation(req.params.id, combined);
     } else {
       // Даём продавцу шанс исправить фото самому: если объявление стояло на
       // проверке из-за отклонённых фото (photo_review_attempts > 0 —
@@ -451,16 +486,32 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       const current = await db.query('SELECT status, photo_review_attempts FROM listings WHERE id = $1', [req.params.id]);
       const row = current.rows[0];
       if (row?.status === 'pending_review' && row.photo_review_attempts > 0) {
-        // Сбрасываем счётчик неудачных попыток — раз в этот раз фото прошли,
-        // это уже не тот же самый "провал", от которого зависит блокировка.
+        // Сбрасываем оба счётчика — раз в этот раз фото прошли полностью
+        // чисто, это уже не тот же самый "провал", от которого зависит
+        // блокировка (ни техническая, ни по нарушению правил).
         await db.query(
-          "UPDATE listings SET status = 'active', moderation_reason = NULL, photo_review_attempts = 0 WHERE id = $1",
+          "UPDATE listings SET status = 'active', moderation_reason = NULL, photo_review_attempts = 0, rule_violation_count = 0 WHERE id = $1",
           [req.params.id]
         );
       }
     }
 
-    res.json({ urls, flagged: allReasons.length > 0 });
+    if (ruleViolation?.isFinal) {
+      return res.status(400).json({
+        error: 'Объявление удалено навсегда — повторное нарушение правил публикации фото. Стоимость публикации не возвращается.',
+        ruleViolation: true,
+        finalStrike: true,
+      });
+    }
+    if (allReasons.length > 0) {
+      return res.status(400).json({
+        error: `Ваше объявление не будет опубликовано: ${allReasons.join('; ')}. Это предупреждение — у вас есть ещё одна попытка. При повторном нарушении объявление будет удалено навсегда, а стоимость публикации не возвращается.`,
+        ruleViolation: true,
+        finalStrike: false,
+      });
+    }
+
+    res.json({ urls, flagged: false });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка загрузки фото' });
   }
