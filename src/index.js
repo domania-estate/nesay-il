@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path    = require('path');
-const rateLimit = require('express-rate-limit');
+const { ensureRateLimitSchema, rateLimitMiddleware } = require('./lib/rateLimit');
 
 const app = express();
 // За реальным IP клиента, а не адресом прокси Railway — нужно для
@@ -23,13 +23,10 @@ app.use(express.json({ limit: '10mb' }));
 // скриптом накрутить тысячи запросов и раздуть счёт в Google Cloud.
 // 30 запросов в минуту с одного IP — с запасом покрывает обычный ввод
 // адреса человеком (дебаунс на фронте и так шлёт не больше пары в секунду).
-const geocodeLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Слишком много запросов, попробуйте через минуту' },
-});
+// Счётчик общий на все реплики бэкенда (хранится в Postgres, а не в памяти
+// процесса) — см. lib/rateLimit.js.
+ensureRateLimitSchema();
+const geocodeLimiter = rateLimitMiddleware({ limit: 30, windowSeconds: 60 });
 
 // Раздаём HTML файлы из папки проекта
 app.use(express.static(path.join(__dirname, '..')));
