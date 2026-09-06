@@ -278,9 +278,9 @@ router.post('/generate-description', requireAuth, generateDescriptionLimiter, as
 // Но если и ВТОРАЯ попытка тоже не проходит — значит просто ждать третьего
 // шанса нет смысла, объявление блокируется (status = 'rejected') и дальше
 // уже требует ручного разбора модератором, а не бесконечных попыток.
-async function flagListingForPhotoReview(listingId, reason) {
+async function flagListingForPhotoReview(listingId, reason, { alreadyPrefixed = false } = {}) {
   try {
-    const combinedReason = `Фото не прошли проверку: ${reason}`;
+    const combinedReason = alreadyPrefixed ? reason : `Фото не прошли проверку: ${reason}`;
     const result = await db.query(`
       UPDATE listings
       SET photo_review_attempts = photo_review_attempts + 1,
@@ -429,23 +429,23 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     allReasons.push(...contentReasons);
 
     if (allReasons.length > 0) {
+      // Та же самая логика "2 промаха — блокировка", что и для дублей/
+      // маленького разрешения/меньше 4 фото при первой загрузке — раньше
+      // эта ветка (похожие фото у других продавцов, ИИ-проверка содержимого)
+      // жила отдельно и никогда не считалась и не блокировала, из-за чего
+      // объявление могло вечно висеть "на проверке" без конца.
       const combined = allReasons.join('; ');
-      await db.query(`
-        UPDATE listings
-        SET status = 'pending_review',
-            moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
-        WHERE id = $1
-      `, [req.params.id, combined]);
+      await flagListingForPhotoReview(req.params.id, combined, { alreadyPrefixed: true });
     } else {
       // Даём продавцу шанс исправить фото самому: если объявление стояло на
-      // проверке ИМЕННО из-за отклонённых фото (flagListingForPhotoReview —
-      // наша автоматическая пометка, а не решение модератора по другой
-      // причине вроде подозрительной цены/дублей адреса), и сейчас загрузка
-      // прошла без нареканий — возвращаем объявление в активные сами,
-      // не заставляя ждать модератора за то, что человек уже исправил.
-      const current = await db.query('SELECT status, moderation_reason FROM listings WHERE id = $1', [req.params.id]);
+      // проверке из-за отклонённых фото (photo_review_attempts > 0 —
+      // проставляется автоматической проверкой, а не решением модератора по
+      // другой причине вроде подозрительной цены/дублей адреса) и сейчас
+      // загрузка прошла без нареканий — возвращаем объявление в активные
+      // сами, не заставляя ждать модератора за то, что человек уже исправил.
+      const current = await db.query('SELECT status, photo_review_attempts FROM listings WHERE id = $1', [req.params.id]);
       const row = current.rows[0];
-      if (row?.status === 'pending_review' && row.moderation_reason?.includes('Фото не прошли проверку')) {
+      if (row?.status === 'pending_review' && row.photo_review_attempts > 0) {
         // Сбрасываем счётчик неудачных попыток — раз в этот раз фото прошли,
         // это уже не тот же самый "провал", от которого зависит блокировка.
         await db.query(
