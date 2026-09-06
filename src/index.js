@@ -4,9 +4,17 @@ const path    = require('path');
 const { ensureRateLimitSchema, rateLimitMiddleware } = require('./lib/rateLimit');
 
 const app = express();
-// За реальным IP клиента, а не адресом прокси Railway — нужно для
-// анти-фрод проверок реферальной программы (см. lib/referralGuard.js).
-app.set('trust proxy', 1);
+// За реальным IP клиента, а не адресом прокси Railway — нужно и для
+// анти-фрод проверок реферальной программы (lib/referralGuard.js), и для
+// лимита частоты запросов геокодинга (lib/rateLimit.js). "1" (доверять
+// ровно одному хопу) оказался неверным числом: у Railway перед приложением
+// не один прокси, а больше — с "1" Express брал IP边 промежуточного edge-узла,
+// который меняется от запроса к запросу, так что один и тот же клиент на
+// каждый запрос выглядел как новый IP. "true" — доверять всей цепочке
+// X-Forwarded-For и брать самый первый (левый) адрес, тот самый, что
+// проставляет первый прокси на пути от настоящего клиента; безопасно,
+// потому что приложение на Railway недоступно напрямую в обход их edge.
+app.set('trust proxy', true);
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
