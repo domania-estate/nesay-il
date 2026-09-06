@@ -288,7 +288,11 @@ async function flagListingForPhotoReview(listingId, reason, { alreadyPrefixed = 
       WHERE id = $1 AND status IN ('active', 'pending_review')
       RETURNING photo_review_attempts
     `, [listingId, combinedReason]);
-    if (!result.rows.length) return;
+    // Если WHERE не сработал — объявление уже не активно и не на проверке
+    // (уже заблокировано/удалено раньше). Явно сообщаем об этом наверх,
+    // а не молча ничего не делаем — иначе продавец продолжает "пытаться
+    // исправить" объявление, которое на самом деле уже мертво.
+    if (!result.rows.length) return { isFinal: false, alreadyDead: true };
     const attempts = result.rows[0].photo_review_attempts;
     if (attempts >= 2) {
       await db.query(`
@@ -297,11 +301,13 @@ async function flagListingForPhotoReview(listingId, reason, { alreadyPrefixed = 
             moderation_reason = moderation_reason || '; Объявление заблокировано: фото не прошли проверку повторно'
         WHERE id = $1
       `, [listingId]);
-    } else {
-      await db.query(`UPDATE listings SET status = 'pending_review' WHERE id = $1`, [listingId]);
+      return { isFinal: true, alreadyDead: false };
     }
+    await db.query(`UPDATE listings SET status = 'pending_review' WHERE id = $1`, [listingId]);
+    return { isFinal: false, alreadyDead: false };
   } catch (e) {
     console.error('flagListingForPhotoReview error:', e);
+    return { isFinal: false, alreadyDead: false };
   }
 }
 
@@ -321,7 +327,7 @@ async function flagRuleViolation(listingId, reason) {
       WHERE id = $1 AND status IN ('active', 'pending_review')
       RETURNING rule_violation_count
     `, [listingId, reason]);
-    if (!result.rows.length) return { isFinal: false };
+    if (!result.rows.length) return { isFinal: false, alreadyDead: true };
     const count = result.rows[0].rule_violation_count;
     if (count >= 2) {
       await db.query(`
@@ -330,14 +336,29 @@ async function flagRuleViolation(listingId, reason) {
             moderation_reason = moderation_reason || '; Объявление удалено навсегда: повторное нарушение правил публикации фото. Стоимость публикации не возвращается.'
         WHERE id = $1
       `, [listingId]);
-      return { isFinal: true };
+      return { isFinal: true, alreadyDead: false };
     }
     await db.query(`UPDATE listings SET status = 'pending_review' WHERE id = $1`, [listingId]);
-    return { isFinal: false };
+    return { isFinal: false, alreadyDead: false };
   } catch (e) {
     console.error('flagRuleViolation error:', e);
-    return { isFinal: false };
+    return { isFinal: false, alreadyDead: false };
   }
+}
+
+// Собирает тело ответа для отказа по фото — раньше в ответе не было
+// признака, что это уже вторая (последняя) попытка или что объявление
+// вообще уже заблокировано, поэтому приложение молча показывало ту же
+// самую ошибку из раза в раз, а список объявлений не обновлялся и
+// продавец не видел, что объявление на самом деле уже мертво.
+function buildPhotoFailureBody(msg, flagResult) {
+  if (flagResult?.alreadyDead) {
+    return {
+      error: 'Это объявление уже заблокировано и больше не может быть опубликовано. Создайте новое объявление.',
+      alreadyDead: true,
+    };
+  }
+  return { error: msg, finalStrike: !!flagResult?.isFinal };
 }
 
 // Загрузить фото
@@ -367,8 +388,8 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     const hasRealPhotos = parseInt(realPhotosRes.rows[0].cnt, 10) > 0;
     if (!hasRealPhotos && photos.length < MIN_PHOTOS_REQUIRED) {
       const msg = `Добавьте минимум ${MIN_PHOTOS_REQUIRED} фотографии`;
-      await flagListingForPhotoReview(req.params.id, msg);
-      return res.status(400).json({ error: msg });
+      const flagResult = await flagListingForPhotoReview(req.params.id, msg);
+      return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
     }
 
     // Декодируем все фото заранее — нужно посчитать хэши и разрешение
@@ -389,13 +410,13 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
         const image = await Jimp.read(item.buffer);
         if (image.bitmap.width < MIN_PHOTO_WIDTH || image.bitmap.height < MIN_PHOTO_HEIGHT) {
           const msg = `Фото №${item.index + 1} слишком низкого качества (маленькое разрешение) — загрузите фото лучше`;
-          if (!hasRealPhotos) await flagListingForPhotoReview(req.params.id, msg);
-          return res.status(400).json({ error: msg });
+          const flagResult = !hasRealPhotos ? await flagListingForPhotoReview(req.params.id, msg) : null;
+          return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
         }
       } catch (e) {
         const msg = `Не удалось обработать фото №${item.index + 1} — файл повреждён`;
-        if (!hasRealPhotos) await flagListingForPhotoReview(req.params.id, msg);
-        return res.status(400).json({ error: msg });
+        const flagResult = !hasRealPhotos ? await flagListingForPhotoReview(req.params.id, msg) : null;
+        return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
       }
     }
 
@@ -409,8 +430,8 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
         if (!batchHashes[j]) continue;
         if (hammingDistance(batchHashes[i], batchHashes[j]) <= DHASH_MATCH_THRESHOLD) {
           const msg = `Фото №${decoded[i].index + 1} и №${decoded[j].index + 1} — это одно и то же фото, добавьте разные фотографии`;
-          if (!hasRealPhotos) await flagListingForPhotoReview(req.params.id, msg);
-          return res.status(400).json({ error: msg });
+          const flagResult = !hasRealPhotos ? await flagListingForPhotoReview(req.params.id, msg) : null;
+          return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
         }
       }
     }
