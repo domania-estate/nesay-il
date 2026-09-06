@@ -68,6 +68,10 @@ app.get('/api/cities', async (req, res) => {
 require('./lib/seedCities').seedIsraeliCities();
 require('./lib/referralGuard').ensureReferralGuardSchema();
 require('./lib/listingReports').ensureReportsSchema();
+// Только схема (таблица + trgm-индекс) — дёшево, безопасно на каждом
+// старте. Само наполнение — отдельный ручной скрипт, см. lib/streets.js.
+const { ensureStreetsSchema, findStreetsFuzzy } = require('./lib/streets');
+ensureStreetsSchema();
 
 // Резервный геокодер на OpenStreetMap/Nominatim — не требует ключа и
 // биллинга, используется, если Google Maps не настроен или ответил ошибкой
@@ -231,6 +235,21 @@ app.get('/api/geocode', geocodeLimiter, async (req, res) => {
       const results = await nominatimSearch(candidate, 5, lang);
       if (results.length) return res.json({ results });
     }
+    // И Google, и Nominatim молчат — пробуем локальный нечёткий индекс улиц
+    // (см. places-autocomplete выше): опечатка или малоизвестная улица,
+    // которую сторонние геокодеры по-русски не знают вовсе.
+    const localMatches = await findStreetsFuzzy(String(q));
+    if (localMatches.length) {
+      const results = localMatches.map((row) => ({
+        street: row.name_en,
+        houseNumber: '',
+        city: pickCityName(row, lang),
+        formatted: [row.name_en, pickCityName(row, lang)].filter(Boolean).join(', '),
+        lat: row.lat,
+        lng: row.lng,
+      }));
+      return res.json({ results });
+    }
     res.json({ results: [] });
   } catch (err) {
     console.error('Geocode error:', err);
@@ -267,6 +286,49 @@ function buildQueryAttempts(q, cityHint) {
   return [...new Set(attempts)];
 }
 
+// Локальный триграммный индекс улиц (src/lib/streets.js) как ДОПОЛНИТЕЛЬНЫЙ
+// источник — Google/Nominatim знают все крупные и большинство мелких улиц,
+// но не прощают опечаток/нестандартной транслитерации кириллицы. Берём
+// кандидатов из той же транслитерации, что и для Google/Nominatim, и
+// добавляем совпадения из своей таблицы, которых не хватает в основном
+// источнике.
+function pickCityName(row, lang) {
+  if (lang === 'ru' && row.city_ru) return row.city_ru;
+  if (lang === 'he' && row.city_he) return row.city_he;
+  if (row.city_en) return row.city_en;
+  return row.city_raw || '';
+}
+
+async function localStreetPredictions(q, lang, excludeDescriptions = new Set()) {
+  const candidates = [q, ...transliterationCandidates(q)];
+  const byId = new Map();
+  for (const candidate of candidates) {
+    const rows = await findStreetsFuzzy(candidate);
+    for (const row of rows) {
+      if (!byId.has(row.id)) byId.set(row.id, row);
+    }
+  }
+  const predictions = [];
+  const seen = new Set(excludeDescriptions);
+  for (const row of [...byId.values()].sort((a, b) => b.sim - a.sim)) {
+    const cityName = pickCityName(row, lang);
+    const description = [row.name_en, cityName].filter(Boolean).join(', ');
+    const key = description.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    predictions.push({
+      description,
+      placeId: `local-${row.id}`,
+      lat: row.lat,
+      lng: row.lng,
+      street: row.name_en,
+      houseNumber: '',
+      city: cityName,
+    });
+  }
+  return predictions;
+}
+
 app.get('/api/places-autocomplete', geocodeLimiter, async (req, res) => {
   const { q, cityHint } = req.query;
   if (!q || String(q).trim().length < 3) return res.json({ predictions: [] });
@@ -282,7 +344,11 @@ app.get('/api/places-autocomplete', geocodeLimiter, async (req, res) => {
     for (const candidate of attempts) {
       if (key) {
         const predictions = await googleAutocomplete(candidate, lang, key);
-        if (predictions) return res.json({ predictions });
+        if (predictions) {
+          const seen = new Set(predictions.map((p) => (p.description || '').toLowerCase()));
+          const extra = await localStreetPredictions(q, lang, seen);
+          return res.json({ predictions: [...predictions, ...extra] });
+        }
       }
       const found = await nominatimSearch(`${candidate}, Israel`, 6, lang);
       if (found.length) {
@@ -309,10 +375,15 @@ app.get('/api/places-autocomplete', geocodeLimiter, async (req, res) => {
             city: item.city,
           });
         });
-        return res.json({ predictions });
+        const seenLower = new Set(predictions.map((p) => p.description.toLowerCase()));
+        const extra = await localStreetPredictions(q, lang, seenLower);
+        return res.json({ predictions: [...predictions, ...extra] });
       }
     }
-    res.json({ predictions: [] });
+    // Ни Google, ни Nominatim ничего не нашли ни на одном варианте — последний
+    // шанс: чисто локальные нечёткие совпадения (опечатка/малоизвестная улица).
+    const localOnly = await localStreetPredictions(q, lang);
+    res.json({ predictions: localOnly });
   } catch (err) {
     console.error('Places autocomplete error:', err);
     res.status(500).json({ error: 'Ошибка автодополнения' });
