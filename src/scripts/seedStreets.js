@@ -43,11 +43,25 @@ function buildQuery(lat, lng, radius) {
 
 async function overpassFetch(query, attempt = 0) {
   const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
-  const r = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
+  let r;
+  try {
+    r = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (attempt < 3) {
+      await sleep(3000 * (attempt + 1));
+      return overpassFetch(query, attempt + 1);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!r.ok) {
     if (attempt < 3) {
       await sleep(3000 * (attempt + 1));
@@ -82,29 +96,58 @@ async function seedCity(city, stats) {
     return;
   }
   const elements = data.elements || [];
-  let inserted = 0;
+  // Один и тот же участок улицы в OSM почти всегда разбит на несколько
+  // way — схлопываем по (name_en) ещё до записи в базу, чтобы не гонять
+  // отдельный round-trip к БД на каждый сегмент (медленно — see below) и
+  // чтобы UNIQUE(name_en, city_id) не спотыкался на дублях внутри одного
+  // batch INSERT. Оставляем координаты первого встреченного сегмента.
   let skippedNoNameEn = 0;
+  const byName = new Map();
   for (const el of elements) {
     const tags = el.tags || {};
     const nameEn = pickNameEn(tags);
     if (!nameEn) { skippedNoNameEn++; continue; }
-    const lat = el.center?.lat ?? null;
-    const lng = el.center?.lon ?? null;
-    const cityRaw = tags['addr:city'] || city.en;
+    if (byName.has(nameEn)) continue;
+    byName.set(nameEn, {
+      nameEn,
+      nameHe: tags['name:he'] || tags.name || null,
+      nameRu: tags['name:ru'] || null,
+      lat: el.center?.lat ?? null,
+      lng: el.center?.lon ?? null,
+      cityRaw: tags['addr:city'] || city.en,
+    });
+  }
+
+  // Пакетная вставка вместо запроса на каждую улицу — на удалённой БД
+  // (Supabase/Railway) один round-trip стоит ~300-400мс, а улиц на город
+  // может быть несколько сотен: без батчинга один крупный город обходился
+  // бы минутами. CHUNK_SIZE=200 держит SQL-запрос разумного размера.
+  const rows = [...byName.values()];
+  const CHUNK_SIZE = 200;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + CHUNK_SIZE);
+    const values = [];
+    const params = [];
+    chunk.forEach((r, idx) => {
+      const base = idx * 7;
+      values.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`);
+      params.push(r.nameEn, r.nameHe, r.nameRu, city.id, r.cityRaw, r.lat, r.lng);
+    });
     try {
       const res = await db.query(
         `INSERT INTO streets (name_en, name_he, name_ru, city_id, city_raw, lat, lng)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         VALUES ${values.join(', ')}
          ON CONFLICT (name_en, city_id) DO NOTHING
          RETURNING id`,
-        [nameEn, tags['name:he'] || tags.name || null, tags['name:ru'] || null, city.id, cityRaw, lat, lng]
+        params
       );
-      if (res.rows.length) inserted++;
+      inserted += res.rows.length;
     } catch (err) {
-      console.error(`  ✗ insert error for "${nameEn}" (${city.en}): ${err.message}`);
+      console.error(`  ✗ batch insert error (${city.en}, chunk ${i}): ${err.message}`);
     }
   }
-  console.log(`  ${city.en}: ${elements.length} ways, +${inserted} new streets (${skippedNoNameEn} skipped — no name:en)`);
+  console.log(`  ${city.en}: ${elements.length} ways, ${rows.length} unique names, +${inserted} new streets (${skippedNoNameEn} segments skipped — no name:en)`);
   stats.totalWays += elements.length;
   stats.totalInserted += inserted;
 }
