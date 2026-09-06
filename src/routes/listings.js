@@ -538,6 +538,29 @@ router.delete('/:id/photos/:photoId', requireAuth, async (req, res) => {
   }
 });
 
+// Удалить ВСЕ фото объявления разом — нужно приложению для "исправить фото"
+// на объявлении, отправленном на проверку: раньше повторная загрузка просто
+// добавляла новые фото поверх старых (в том числе бракованных из прошлых
+// неудачных попыток), они копились и раздували запрос. Теперь сначала
+// чистим, потом загружаем заново с нуля.
+router.delete('/:id/photos', requireAuth, async (req, res) => {
+  try {
+    const owns = await db.query('SELECT id FROM listings WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    if (!owns.rows.length) return res.status(404).json({ error: 'Не найдено' });
+
+    const photos = await db.query('SELECT url FROM listing_photos WHERE listing_id = $1', [req.params.id]);
+    await db.query('DELETE FROM listing_photos WHERE listing_id = $1', [req.params.id]);
+
+    const paths = photos.rows.map((p) => p.url.split('/photos/')[1]).filter(Boolean);
+    if (paths.length) await supabase.storage.from('photos').remove(paths).catch(() => {});
+
+    res.json({ success: true, removed: photos.rows.length });
+  } catch (err) {
+    console.error('Delete all photos error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Увеличить просмотры
 router.post('/:id/view', async (req, res) => {
   try {
