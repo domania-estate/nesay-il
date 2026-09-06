@@ -270,22 +270,36 @@ router.post('/generate-description', requireAuth, generateDescriptionLimiter, as
   }
 });
 
-// Если фото не проходят проверку при первой загрузке — объявление уже
-// существует (создано отдельным запросом до фото) и не должно оставаться
-// активным без единой настоящей фотографии. Вместо того чтобы просто
-// вернуть ошибку и оставить его как есть (баг, который ловил пользователь:
-// объявление оставалось активным и публичным с фото-заглушкой), переводим
-// его на ручную проверку — так его никто не увидит, но оно не потеряно:
-// продавец может дозагрузить нормальные фото, а модератор — посмотреть, что
-// случилось.
+// Если фото не проходят проверку — объявление уже существует (создано
+// отдельным запросом до фото) и не должно оставаться активным без единой
+// настоящей фотографии. Первая неудача даёт шанс исправиться: переводим на
+// ручную проверку, продавец может дозагрузить нормальные фото — если они
+// пройдут, объявление само вернётся в активные (см. success-ветку ниже).
+// Но если и ВТОРАЯ попытка тоже не проходит — значит просто ждать третьего
+// шанса нет смысла, объявление блокируется (status = 'rejected') и дальше
+// уже требует ручного разбора модератором, а не бесконечных попыток.
 async function flagListingForPhotoReview(listingId, reason) {
   try {
-    await db.query(`
+    const combinedReason = `Фото не прошли проверку: ${reason}`;
+    const result = await db.query(`
       UPDATE listings
-      SET status = 'pending_review',
+      SET photo_review_attempts = photo_review_attempts + 1,
           moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
-      WHERE id = $1 AND status = 'active'
-    `, [listingId, `Фото не прошли проверку: ${reason}`]);
+      WHERE id = $1 AND status IN ('active', 'pending_review')
+      RETURNING photo_review_attempts
+    `, [listingId, combinedReason]);
+    if (!result.rows.length) return;
+    const attempts = result.rows[0].photo_review_attempts;
+    if (attempts >= 2) {
+      await db.query(`
+        UPDATE listings
+        SET status = 'rejected',
+            moderation_reason = moderation_reason || '; Объявление заблокировано: фото не прошли проверку повторно'
+        WHERE id = $1
+      `, [listingId]);
+    } else {
+      await db.query(`UPDATE listings SET status = 'pending_review' WHERE id = $1`, [listingId]);
+    }
   } catch (e) {
     console.error('flagListingForPhotoReview error:', e);
   }
@@ -432,8 +446,10 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       const current = await db.query('SELECT status, moderation_reason FROM listings WHERE id = $1', [req.params.id]);
       const row = current.rows[0];
       if (row?.status === 'pending_review' && row.moderation_reason?.includes('Фото не прошли проверку')) {
+        // Сбрасываем счётчик неудачных попыток — раз в этот раз фото прошли,
+        // это уже не тот же самый "провал", от которого зависит блокировка.
         await db.query(
-          "UPDATE listings SET status = 'active', moderation_reason = NULL WHERE id = $1",
+          "UPDATE listings SET status = 'active', moderation_reason = NULL, photo_review_attempts = 0 WHERE id = $1",
           [req.params.id]
         );
       }
