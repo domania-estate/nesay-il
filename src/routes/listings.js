@@ -121,7 +121,7 @@ async function verifyPrice(cityId, dealType, price, rooms) {
 
 // Создать объявление
 router.post('/', requireAuth, async (req, res) => {
-  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, floor, total_floors, description, condition, furnished, pets_allowed, seller_type, utilities, sale_reason } = req.body;
+  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, floor, total_floors, description, condition, furnished, pets_allowed, seller_type, utilities, sale_reason, amenities } = req.body;
   if (req.user.role === 'buyer') return res.status(403).json({ error: 'Покупатели не могут публиковать' });
 
   // Полная карточка объявления обязательна — без неё покупатель не может
@@ -170,8 +170,8 @@ router.post('/', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(`
-        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, floor, total_floors, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities, sale_reason)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, floor, total_floors, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities, sale_reason, amenities)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
         RETURNING *
       `, [
         req.user.id, parseInt(city_id) || 1, deal_type, property_type || 'apartment',
@@ -183,7 +183,7 @@ router.post('/', requireAuth, async (req, res) => {
         JSON.stringify(description || {}),
         status, moderationReason,
         condition || null, furnished || null, pets_allowed || null, seller_type || null,
-        JSON.stringify(utilities || {}), sale_reason || null
+        JSON.stringify(utilities || {}), sale_reason || null, JSON.stringify(amenities || {})
       ]);
       // Снимаем 100 шекелей за публикацию
       await client.query('UPDATE users SET credits = credits - 100 WHERE id = $1', [req.user.id]);
@@ -221,9 +221,18 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     const maxOrderRes = await db.query('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM listing_photos WHERE listing_id = $1', [req.params.id]);
     const startOrder = maxOrderRes.rows[0].max_order + 1;
 
-    // Минимум 4 фото требуем только при первой загрузке (публикация) —
-    // на объявление, где фото уже есть, это ограничение уже выполнено.
-    if (startOrder === 0 && photos.length < MIN_PHOTOS_REQUIRED) {
+    // Минимум 4 фото требуем только при первой РЕАЛЬНОЙ загрузке от
+    // пользователя — специально считаем без учёта фото, добавленных
+    // автоматическим наполнением демо-объявлений (enrichListings.js,
+    // URL содержит "/enriched_"): если объявление ещё не имеет ни одного
+    // фото от самого продавца, требование остаётся в силе, даже если
+    // "startOrder" уже не 0 из-за подставленных стоковых фото.
+    const realPhotosRes = await db.query(
+      `SELECT COUNT(*) AS cnt FROM listing_photos WHERE listing_id = $1 AND url NOT LIKE '%/enriched_%'`,
+      [req.params.id]
+    );
+    const hasRealPhotos = parseInt(realPhotosRes.rows[0].cnt, 10) > 0;
+    if (!hasRealPhotos && photos.length < MIN_PHOTOS_REQUIRED) {
       return res.status(400).json({ error: `Добавьте минимум ${MIN_PHOTOS_REQUIRED} фотографии` });
     }
 
@@ -543,7 +552,7 @@ router.get('/recommended', requireAuth, async (req, res) => {
 // Каждое реальное изменение цены пишется в listing_price_history — на её
 // основе строится история цены и статистика снижений на детальной странице.
 router.put('/:id', requireAuth, async (req, res) => {
-  const { price, sale_reason, description } = req.body;
+  const { price, sale_reason, description, amenities } = req.body;
   if (description !== undefined && !String(description?.ru || '').trim()) {
     return res.status(400).json({ error: 'Описание не может быть пустым' });
   }
@@ -561,8 +570,8 @@ router.put('/:id', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(
-        'UPDATE listings SET price = $1, sale_reason = COALESCE($2, sale_reason), description = COALESCE($3, description), updated_at = NOW() WHERE id = $4 AND user_id = $5 RETURNING *',
-        [newPrice, sale_reason ?? null, description ? JSON.stringify(description) : null, req.params.id, req.user.id]
+        'UPDATE listings SET price = $1, sale_reason = COALESCE($2, sale_reason), description = COALESCE($3, description), amenities = COALESCE($4, amenities), updated_at = NOW() WHERE id = $5 AND user_id = $6 RETURNING *',
+        [newPrice, sale_reason ?? null, description ? JSON.stringify(description) : null, amenities ? JSON.stringify(amenities) : null, req.params.id, req.user.id]
       );
       if (newPrice !== current.rows[0].price) {
         // Старые объявления (созданные до этой фичи) не имеют стартовой точки
