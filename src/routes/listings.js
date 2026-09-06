@@ -422,6 +422,21 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
             moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
         WHERE id = $1
       `, [req.params.id, combined]);
+    } else {
+      // Даём продавцу шанс исправить фото самому: если объявление стояло на
+      // проверке ИМЕННО из-за отклонённых фото (flagListingForPhotoReview —
+      // наша автоматическая пометка, а не решение модератора по другой
+      // причине вроде подозрительной цены/дублей адреса), и сейчас загрузка
+      // прошла без нареканий — возвращаем объявление в активные сами,
+      // не заставляя ждать модератора за то, что человек уже исправил.
+      const current = await db.query('SELECT status, moderation_reason FROM listings WHERE id = $1', [req.params.id]);
+      const row = current.rows[0];
+      if (row?.status === 'pending_review' && row.moderation_reason?.includes('Фото не прошли проверку')) {
+        await db.query(
+          "UPDATE listings SET status = 'active', moderation_reason = NULL WHERE id = $1",
+          [req.params.id]
+        );
+      }
     }
 
     res.json({ urls, flagged: allReasons.length > 0 });
@@ -752,8 +767,11 @@ router.post('/:id/approve', requireModerator, async (req, res) => {
 router.post('/:id/reject', requireModerator, async (req, res) => {
   const { reason } = req.body;
   try {
+    // Отдельный статус от "removed" — "removed" значит, что объявление
+    // удалил сам продавец, а "rejected" — что модератор его не пропустил
+    // (продавец должен это видеть отдельно, не как будто сам его снял).
     const result = await db.query(
-      "UPDATE listings SET status = 'removed', moderation_reason = $2 WHERE id = $1 AND status = 'pending_review' RETURNING id",
+      "UPDATE listings SET status = 'rejected', moderation_reason = $2 WHERE id = $1 AND status = 'pending_review' RETURNING id",
       [req.params.id, reason || 'Отклонено модератором']
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
