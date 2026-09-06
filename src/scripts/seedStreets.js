@@ -157,11 +157,14 @@ async function main() {
   const isTest = args.includes('--test');
   const startArg = args.find((a) => a.startsWith('--start='));
   const startIdx = startArg ? parseInt(startArg.split('=')[1], 10) : 0;
+  const onlyArg = args.find((a) => a.startsWith('--only='));
+  const onlyNames = onlyArg ? onlyArg.slice('--only='.length).split(',').map((s) => s.trim().toLowerCase()) : null;
 
   await ensureStreetsSchema();
 
   let cities = await loadCities();
-  if (isTest) cities = cities.slice(0, 4);
+  if (onlyNames) cities = cities.filter((c) => onlyNames.includes(c.en.toLowerCase()));
+  else if (isTest) cities = cities.slice(0, 4);
   else cities = cities.slice(startIdx);
 
   console.log(`Seeding streets for ${cities.length} cities (radius ${RADIUS_M}m)${isTest ? ' [TEST MODE]' : ''}...`);
