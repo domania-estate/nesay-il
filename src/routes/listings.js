@@ -15,8 +15,19 @@ const MIN_PHOTOS_REQUIRED = 4;
 const { checkPhotoContent } = require('../lib/photoModeration');
 const { addWatermark } = require('../lib/watermark');
 const { fileReport, REPORT_REASONS } = require('../lib/listingReports');
+const { rateLimitMiddleware } = require('../lib/rateLimit');
 
 const router = express.Router();
+
+// Русские подписи удобств — только для читаемого промпта Gemini, не для UI
+// (UI сам переводит через i18n). Gemini прекрасно понимает и смешанный текст,
+// но так факты передаются однозначно, без риска что "bars" примут за "бары".
+const AMENITY_LABELS_RU = {
+  mamad: 'мамад (защищённая комната)', elevator: 'лифт', parking: 'парковка', balcony: 'балкон',
+  airConditioner: 'кондиционер', bars: 'решётки на окнах', accessible: 'доступ для инвалидов', storage: 'кладовка',
+  dishwasher: 'посудомоечная машина', oven: 'духовка', stove: 'плита', washingMachine: 'стиральная машина',
+  dryer: 'сушильная машина', vacuum: 'пылесос',
+};
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -204,6 +215,58 @@ router.post('/', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Create listing error:', err);
     res.status(500).json({ error: 'Ошибка: ' + err.message });
+  }
+});
+
+// Помощь ИИ в составлении описания — продавец пишет пару предложений своими
+// словами, Gemini переписывает грамотнее и структурированнее, опираясь
+// только на реальные факты (удобства/расположение/тип сделки), ничего не
+// выдумывая. Платный вызов Gemini — поэтому requireAuth + отдельный лимит
+// частоты, как у остальных AI-эндпоинтов.
+const generateDescriptionLimiter = rateLimitMiddleware({ limit: 15, windowSeconds: 60, message: 'Слишком много запросов к ИИ, попробуйте через минуту' });
+router.post('/generate-description', requireAuth, generateDescriptionLimiter, async (req, res) => {
+  const { draft, dealType, propertyType, rooms, sqm, city, street, amenities, lang } = req.body;
+  if (!draft || !String(draft).trim()) return res.status(400).json({ error: 'Напишите черновик описания' });
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(503).json({ error: 'AI не настроен' });
+
+  const amenityList = Object.entries(amenities || {}).filter(([, v]) => v).map(([k]) => AMENITY_LABELS_RU[k] || k);
+  const facts = [
+    dealType === 'sale' ? 'продажа' : 'аренда',
+    propertyType === 'house' ? 'дом' : propertyType === 'commercial' ? 'коммерческое помещение' : 'квартира',
+    rooms ? `${rooms} комнат` : null,
+    sqm ? `${sqm} м²` : null,
+    city ? `город: ${city}` : null,
+    street ? `улица: ${street}` : null,
+    amenityList.length ? `удобства: ${amenityList.join(', ')}` : null,
+  ].filter(Boolean).join('; ');
+
+  const targetLang = ['ru', 'en', 'he'].includes(lang) ? lang : 'ru';
+  const langName = { ru: 'русском', en: 'английском', he: 'иврите' }[targetLang];
+
+  const systemPrompt = `Ты помощник по составлению объявлений о недвижимости в Израиле. Тебе дают черновик от продавца своими словами и список реальных фактов об объекте. Перепиши черновик в грамотное, структурированное, привлекательное описание на ${langName} языке (2-5 предложений). Используй ТОЛЬКО факты из черновика и списка — ничего не выдумывай и не добавляй характеристик, которых там нет. Не используй markdown и списки, только связный текст.`;
+
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ parts: [{ text: `Черновик продавца: "${String(draft).trim()}"\nФакты об объекте: ${facts}` }] }],
+        generationConfig: { temperature: 0.4 },
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      console.error('Gemini error:', r.status, data.error?.message);
+      return res.status(503).json({ error: 'AI недоступен' });
+    }
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return res.status(503).json({ error: 'Пустой ответ AI' });
+    res.json({ description: text.trim() });
+  } catch (err) {
+    console.error('Generate description error:', err);
+    res.status(500).json({ error: 'Ошибка AI' });
   }
 });
 
