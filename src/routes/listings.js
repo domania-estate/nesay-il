@@ -270,6 +270,27 @@ router.post('/generate-description', requireAuth, generateDescriptionLimiter, as
   }
 });
 
+// Если фото не проходят проверку при первой загрузке — объявление уже
+// существует (создано отдельным запросом до фото) и не должно оставаться
+// активным без единой настоящей фотографии. Вместо того чтобы просто
+// вернуть ошибку и оставить его как есть (баг, который ловил пользователь:
+// объявление оставалось активным и публичным с фото-заглушкой), переводим
+// его на ручную проверку — так его никто не увидит, но оно не потеряно:
+// продавец может дозагрузить нормальные фото, а модератор — посмотреть, что
+// случилось.
+async function flagListingForPhotoReview(listingId, reason) {
+  try {
+    await db.query(`
+      UPDATE listings
+      SET status = 'pending_review',
+          moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
+      WHERE id = $1 AND status = 'active'
+    `, [listingId, `Фото не прошли проверку: ${reason}`]);
+  } catch (e) {
+    console.error('flagListingForPhotoReview error:', e);
+  }
+}
+
 // Загрузить фото
 router.post('/:id/photos', requireAuth, async (req, res) => {
   const { photos } = req.body;
@@ -296,7 +317,9 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     );
     const hasRealPhotos = parseInt(realPhotosRes.rows[0].cnt, 10) > 0;
     if (!hasRealPhotos && photos.length < MIN_PHOTOS_REQUIRED) {
-      return res.status(400).json({ error: `Добавьте минимум ${MIN_PHOTOS_REQUIRED} фотографии` });
+      const msg = `Добавьте минимум ${MIN_PHOTOS_REQUIRED} фотографии`;
+      await flagListingForPhotoReview(req.params.id, msg);
+      return res.status(400).json({ error: msg });
     }
 
     // Декодируем все фото заранее — нужно посчитать хэши и разрешение
@@ -316,10 +339,14 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       try {
         const image = await Jimp.read(item.buffer);
         if (image.bitmap.width < MIN_PHOTO_WIDTH || image.bitmap.height < MIN_PHOTO_HEIGHT) {
-          return res.status(400).json({ error: `Фото №${item.index + 1} слишком низкого качества (маленькое разрешение) — загрузите фото лучше` });
+          const msg = `Фото №${item.index + 1} слишком низкого качества (маленькое разрешение) — загрузите фото лучше`;
+          if (!hasRealPhotos) await flagListingForPhotoReview(req.params.id, msg);
+          return res.status(400).json({ error: msg });
         }
       } catch (e) {
-        return res.status(400).json({ error: `Не удалось обработать фото №${item.index + 1} — файл повреждён` });
+        const msg = `Не удалось обработать фото №${item.index + 1} — файл повреждён`;
+        if (!hasRealPhotos) await flagListingForPhotoReview(req.params.id, msg);
+        return res.status(400).json({ error: msg });
       }
     }
 
@@ -332,7 +359,9 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       for (let j = i + 1; j < batchHashes.length; j++) {
         if (!batchHashes[j]) continue;
         if (hammingDistance(batchHashes[i], batchHashes[j]) <= DHASH_MATCH_THRESHOLD) {
-          return res.status(400).json({ error: `Фото №${decoded[i].index + 1} и №${decoded[j].index + 1} — это одно и то же фото, добавьте разные фотографии` });
+          const msg = `Фото №${decoded[i].index + 1} и №${decoded[j].index + 1} — это одно и то же фото, добавьте разные фотографии`;
+          if (!hasRealPhotos) await flagListingForPhotoReview(req.params.id, msg);
+          return res.status(400).json({ error: msg });
         }
       }
     }
