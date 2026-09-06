@@ -3,8 +3,15 @@ const db = require('../../config/db');
 const { requireAuth, optionalAuth, requireModerator } = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 const { notifyMatchingSearches } = require('../lib/pushNotify');
-const { computeDHash } = require('../lib/imageHash');
-const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity } = require('../lib/fraudChecks');
+const { computeDHash, hammingDistance } = require('../lib/imageHash');
+const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity, DHASH_MATCH_THRESHOLD } = require('../lib/fraudChecks');
+const Jimp = require('jimp');
+
+// Меньше этого разрешения фото считается слишком низкого качества для
+// публикации (мутные/огромно сжатые превью, скриншоты из мессенджеров и т.п.).
+const MIN_PHOTO_WIDTH = 600;
+const MIN_PHOTO_HEIGHT = 400;
+const MIN_PHOTOS_REQUIRED = 4;
 const { checkPhotoContent } = require('../lib/photoModeration');
 const { addWatermark } = require('../lib/watermark');
 const { fileReport, REPORT_REASONS } = require('../lib/listingReports');
@@ -213,6 +220,50 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     // перезаписали бы порядок/обложку существующих (sort_order с нуля).
     const maxOrderRes = await db.query('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM listing_photos WHERE listing_id = $1', [req.params.id]);
     const startOrder = maxOrderRes.rows[0].max_order + 1;
+
+    // Минимум 4 фото требуем только при первой загрузке (публикация) —
+    // на объявление, где фото уже есть, это ограничение уже выполнено.
+    if (startOrder === 0 && photos.length < MIN_PHOTOS_REQUIRED) {
+      return res.status(400).json({ error: `Добавьте минимум ${MIN_PHOTOS_REQUIRED} фотографии` });
+    }
+
+    // Декодируем все фото заранее — нужно посчитать хэши и разрешение
+    // ДО загрузки в Storage, чтобы иметь возможность полностью отклонить
+    // запрос (400), а не только пометить объявление на модерацию.
+    const decoded = [];
+    for (let i = 0; i < photos.length; i++) {
+      const base64 = photos[i];
+      const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches) continue;
+      decoded.push({ index: i, mimeType: matches[1], buffer: Buffer.from(matches[2], 'base64') });
+    }
+
+    // Разрешение — слишком маленькое фото (скриншот, мутное превью и т.п.)
+    // отклоняем сразу с указанием, какое именно фото не подходит.
+    for (const item of decoded) {
+      try {
+        const image = await Jimp.read(item.buffer);
+        if (image.bitmap.width < MIN_PHOTO_WIDTH || image.bitmap.height < MIN_PHOTO_HEIGHT) {
+          return res.status(400).json({ error: `Фото №${item.index + 1} слишком низкого качества (маленькое разрешение) — загрузите фото лучше` });
+        }
+      } catch (e) {
+        return res.status(400).json({ error: `Не удалось обработать фото №${item.index + 1} — файл повреждён` });
+      }
+    }
+
+    // Дубли внутри этой же загрузки — одно и то же фото, добавленное
+    // дважды/трижды. Отдельно от checkDuplicatePhotos ниже — та проверка
+    // сравнивает только с ДРУГИМИ объявлениями, а не внутри одного набора.
+    const batchHashes = await Promise.all(decoded.map((item) => computeDHash(item.buffer).catch(() => null)));
+    for (let i = 0; i < batchHashes.length; i++) {
+      if (!batchHashes[i]) continue;
+      for (let j = i + 1; j < batchHashes.length; j++) {
+        if (!batchHashes[j]) continue;
+        if (hammingDistance(batchHashes[i], batchHashes[j]) <= DHASH_MATCH_THRESHOLD) {
+          return res.status(400).json({ error: `Фото №${decoded[i].index + 1} и №${decoded[j].index + 1} — это одно и то же фото, добавьте разные фотографии` });
+        }
+      }
+    }
 
     const urls = [];
     const hashes = [];
