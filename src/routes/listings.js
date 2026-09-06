@@ -16,6 +16,7 @@ const { checkPhotoContent } = require('../lib/photoModeration');
 const { addWatermark } = require('../lib/watermark');
 const { fileReport, REPORT_REASONS } = require('../lib/listingReports');
 const { rateLimitMiddleware } = require('../lib/rateLimit');
+const { t: mt, safeLang } = require('../lib/moderationI18n');
 
 const router = express.Router();
 
@@ -351,12 +352,9 @@ async function flagRuleViolation(listingId, reason) {
 // вообще уже заблокировано, поэтому приложение молча показывало ту же
 // самую ошибку из раза в раз, а список объявлений не обновлялся и
 // продавец не видел, что объявление на самом деле уже мертво.
-function buildPhotoFailureBody(msg, flagResult) {
+function buildPhotoFailureBody(msg, flagResult, lang) {
   if (flagResult?.alreadyDead) {
-    return {
-      error: 'Это объявление уже заблокировано и больше не может быть опубликовано. Создайте новое объявление.',
-      alreadyDead: true,
-    };
+    return { error: mt('alreadyDead', lang), alreadyDead: true };
   }
   return { error: msg, finalStrike: !!flagResult?.isFinal };
 }
@@ -364,9 +362,10 @@ function buildPhotoFailureBody(msg, flagResult) {
 // Загрузить фото
 router.post('/:id/photos', requireAuth, async (req, res) => {
   const { photos } = req.body;
-  if (!photos || !photos.length) return res.status(400).json({ error: 'Нет фото' });
+  const lang = safeLang(req.body.lang);
+  if (!photos || !photos.length) return res.status(400).json({ error: mt('noPhotos', lang) });
   const check = await db.query('SELECT id FROM listings WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
-  if (!check.rows.length) return res.status(404).json({ error: 'Не найдено' });
+  if (!check.rows.length) return res.status(404).json({ error: mt('notFound', lang) });
 
   try {
     // Если у объявления уже есть фото (добавляем ещё, а не публикуем впервые),
@@ -387,9 +386,9 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     );
     const hasRealPhotos = parseInt(realPhotosRes.rows[0].cnt, 10) > 0;
     if (!hasRealPhotos && photos.length < MIN_PHOTOS_REQUIRED) {
-      const msg = `Добавьте минимум ${MIN_PHOTOS_REQUIRED} фотографии`;
+      const msg = mt('minPhotos', lang, MIN_PHOTOS_REQUIRED);
       const flagResult = await flagListingForPhotoReview(req.params.id, msg);
-      return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
+      return res.status(400).json(buildPhotoFailureBody(msg, flagResult, lang));
     }
 
     // Декодируем все фото заранее — нужно посчитать хэши и разрешение
@@ -409,14 +408,14 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       try {
         const image = await Jimp.read(item.buffer);
         if (image.bitmap.width < MIN_PHOTO_WIDTH || image.bitmap.height < MIN_PHOTO_HEIGHT) {
-          const msg = `Фото №${item.index + 1} слишком низкого качества (маленькое разрешение) — загрузите фото лучше`;
+          const msg = mt('lowRes', lang, item.index + 1);
           const flagResult = !hasRealPhotos ? await flagListingForPhotoReview(req.params.id, msg) : null;
-          return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
+          return res.status(400).json(buildPhotoFailureBody(msg, flagResult, lang));
         }
       } catch (e) {
-        const msg = `Не удалось обработать фото №${item.index + 1} — файл повреждён`;
+        const msg = mt('corrupted', lang, item.index + 1);
         const flagResult = !hasRealPhotos ? await flagListingForPhotoReview(req.params.id, msg) : null;
-        return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
+        return res.status(400).json(buildPhotoFailureBody(msg, flagResult, lang));
       }
     }
 
@@ -429,9 +428,9 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       for (let j = i + 1; j < batchHashes.length; j++) {
         if (!batchHashes[j]) continue;
         if (hammingDistance(batchHashes[i], batchHashes[j]) <= DHASH_MATCH_THRESHOLD) {
-          const msg = `Фото №${decoded[i].index + 1} и №${decoded[j].index + 1} — это одно и то же фото, добавьте разные фотографии`;
+          const msg = mt('duplicateInBatch', lang, decoded[i].index + 1, decoded[j].index + 1);
           const flagResult = !hasRealPhotos ? await flagListingForPhotoReview(req.params.id, msg) : null;
-          return res.status(400).json(buildPhotoFailureBody(msg, flagResult));
+          return res.status(400).json(buildPhotoFailureBody(msg, flagResult, lang));
         }
       }
     }
@@ -477,11 +476,11 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     const hashes = successful.filter((p) => p.phash).map((p) => p.phash);
     // Проверку содержимого (не скриншот/не по теме/неприемлемо) — тоже
     // параллельно по всем фото.
-    const contentChecks = successful.map((p) => checkPhotoContent(p.data, p.mimeType));
+    const contentChecks = successful.map((p) => checkPhotoContent(p.data, p.mimeType, lang));
 
     // Похожие фото у другого продавца/этого же продавца — переводим
     // объявление на ручную проверку, даже если оно уже было опубликовано.
-    const dupPhotoCheck = await checkDuplicatePhotos(req.params.id, hashes);
+    const dupPhotoCheck = await checkDuplicatePhotos(req.params.id, hashes, lang);
     const contentResults = await Promise.all(contentChecks);
     const contentReasons = contentResults.filter((r) => !r.ok).map((r) => r.reason);
 
@@ -519,14 +518,14 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
 
     if (ruleViolation?.isFinal) {
       return res.status(400).json({
-        error: 'Объявление удалено навсегда — повторное нарушение правил публикации фото. Стоимость публикации не возвращается.',
+        error: mt('ruleViolationFinal', lang),
         ruleViolation: true,
         finalStrike: true,
       });
     }
     if (allReasons.length > 0) {
       return res.status(400).json({
-        error: `Ваше объявление не будет опубликовано: ${allReasons.join('; ')}. Это предупреждение — у вас есть ещё одна попытка. При повторном нарушении объявление будет удалено навсегда, а стоимость публикации не возвращается.`,
+        error: mt('ruleViolationWarning', lang, allReasons.join('; ')),
         ruleViolation: true,
         finalStrike: false,
       });
@@ -534,7 +533,7 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
 
     res.json({ urls, flagged: false });
   } catch (err) {
-    res.status(500).json({ error: 'Ошибка загрузки фото' });
+    res.status(500).json({ error: mt('genericUploadError', lang) });
   }
 });
 

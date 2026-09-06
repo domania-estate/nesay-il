@@ -4,6 +4,7 @@
 // — все причины складываются в общий список moderation_reason.
 const db = require('../../config/db');
 const { hammingDistance } = require('./imageHash');
+const { t: mt } = require('./moderationI18n');
 
 // Порог различия для dHash (из 64 бит). Взято с запасом: обычное пересжатие
 ///ресайз даёт разницу в единицы бит, разные фото — обычно 20+.
@@ -12,7 +13,7 @@ const DHASH_MATCH_THRESHOLD = 8;
 // Похожие/переиспользованные фото в других объявлениях — признак либо
 // скопированного чужого объявления, либо массовой публикации одинаковых
 // карточек одним и тем же продавцом.
-async function checkDuplicatePhotos(listingId, newHashes) {
+async function checkDuplicatePhotos(listingId, newHashes, lang = 'ru') {
   if (!newHashes || newHashes.length === 0) return { ok: true };
   try {
     // Не исключаем объявления того же продавца: одно и то же фото в разных
@@ -38,7 +39,7 @@ async function checkDuplicatePhotos(listingId, newHashes) {
       }
     }
     if (matchedListingIds.size > 0) {
-      return { ok: false, reason: `⚠️ Похожие фотографии обнаружены в ${matchedListingIds.size} других объявлениях`, count: matchedListingIds.size };
+      return { ok: false, reason: mt('duplicateAcrossListings', lang, matchedListingIds.size), count: matchedListingIds.size };
     }
     return { ok: true };
   } catch (e) {
