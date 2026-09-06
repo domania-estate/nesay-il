@@ -125,6 +125,10 @@ const KNOWN_STREET_NAMES = [
   [/герцл[ья]|херцл[ья]/gi, 'Herzl'],
   [/алленби/gi, 'Allenby'],
   [/дизенгоф/gi, 'Dizengoff'],
+  // "Яффе" по-русски звучит похоже на "Яффа/Jaffa", но улица Яффе-Ноф в
+  // Хайфе — это ивритское "Yefe Nof" (יפה נוף, "красивый вид"), обычная
+  // транслитерация даёт "Yaffe", которого Google не знает.
+  [/яффе[- ]?ноф/gi, 'Yefe Nof'],
 ];
 
 function applyKnownStreetNames(text) {
