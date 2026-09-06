@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path    = require('path');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 // За реальным IP клиента, а не адресом прокси Railway — нужно для
@@ -15,6 +16,20 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '10mb' }));
+
+// Геокодирование/автодополнение/nearby дёргают платный Google Maps API и
+// никак не защищены авторизацией (нужны ещё до логина — на форме поиска и
+// публикации объявления) — без ограничения частоты кто угодно может
+// скриптом накрутить тысячи запросов и раздуть счёт в Google Cloud.
+// 30 запросов в минуту с одного IP — с запасом покрывает обычный ввод
+// адреса человеком (дебаунс на фронте и так шлёт не больше пары в секунду).
+const geocodeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов, попробуйте через минуту' },
+});
 
 // Раздаём HTML файлы из папки проекта
 app.use(express.static(path.join(__dirname, '..')));
@@ -184,7 +199,7 @@ async function googleGeocode(address, lang, key) {
 
 // Геокодирование адреса — пробуем Google Maps (точнее, но платный и требует
 // настроенного ключа), при отсутствии ключа или ошибке — Nominatim (бесплатно).
-app.get('/api/geocode', async (req, res) => {
+app.get('/api/geocode', geocodeLimiter, async (req, res) => {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: 'Укажите адрес' });
   const lang = safeGeocodeLang(req.query.lang);
@@ -237,7 +252,7 @@ function buildQueryAttempts(q, cityHint) {
   return [...new Set(attempts)];
 }
 
-app.get('/api/places-autocomplete', async (req, res) => {
+app.get('/api/places-autocomplete', geocodeLimiter, async (req, res) => {
   const { q, cityHint } = req.query;
   if (!q || String(q).trim().length < 3) return res.json({ predictions: [] });
   const lang = safeGeocodeLang(req.query.lang);
@@ -291,7 +306,7 @@ app.get('/api/places-autocomplete', async (req, res) => {
 
 // Обратное геокодирование — по координатам определяем название улицы
 // (нужно для перетаскиваемого маркера в форме публикации)
-app.get('/api/reverse-geocode', async (req, res) => {
+app.get('/api/reverse-geocode', geocodeLimiter, async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'Укажите координаты' });
   const lang = safeGeocodeLang(req.query.lang);
@@ -329,7 +344,7 @@ app.get('/api/reverse-geocode', async (req, res) => {
 // src/lib/nearbyPlaces.js — её же использует AI-поиск для ранжирования.
 const { getNearby, NEARBY_SUPPORTED_LANGS } = require('./lib/nearbyPlaces');
 
-app.get('/api/nearby', async (req, res) => {
+app.get('/api/nearby', geocodeLimiter, async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'Укажите координаты' });
   if (!process.env.GOOGLE_MAPS_API_KEY) return res.status(503).json({ error: 'Places API не настроен' });
