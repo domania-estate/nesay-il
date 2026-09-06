@@ -36,6 +36,12 @@ app.use(express.json({ limit: '10mb' }));
 ensureRateLimitSchema();
 const geocodeLimiter = rateLimitMiddleware({ limit: 30, windowSeconds: 60 });
 
+// AI-поиск вызывает платный Gemini API на каждый запрос — ограничиваем
+// частоту так же, как геокодирование, чтобы скриптом нельзя было накрутить
+// счёт: 10 запросов в минуту с запасом покрывает обычный ввод человеком
+// (запрос печатается/отправляется явно, не на каждое нажатие клавиши).
+const aiSearchLimiter = rateLimitMiddleware({ limit: 10, windowSeconds: 60, message: 'Слишком много AI-запросов, попробуйте через минуту' });
+
 // Раздаём HTML файлы из папки проекта
 app.use(express.static(path.join(__dirname, '..')));
 
@@ -45,7 +51,7 @@ app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/admin',    require('./routes/admin'));
 app.use('/api/messages', require('./routes/messages'));
-app.use('/api/ai-search', require('./routes/aiSearch'));
+app.use('/api/ai-search', aiSearchLimiter, require('./routes/aiSearch'));
 
 app.get('/api/cities', async (req, res) => {
   try {
