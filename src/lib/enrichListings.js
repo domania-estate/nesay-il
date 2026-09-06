@@ -124,10 +124,17 @@ async function enrichDemoListings({ force = false } = {}) {
     await db.query(`DELETE FROM listing_photos WHERE url LIKE '%/enriched_%'`);
   }
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  // Ограничение по возрасту (>1 час) — без него реальное объявление
+  // настоящего пользователя, который ещё не успел загрузить свои фото
+  // (обычно занимает пару минут), может попасть под "демо без фото" и
+  // получить чужие стоковые фото на своё объявление. Реальные пользователи
+  // всегда успевают загрузить фото в течение минут после создания, час —
+  // с большим запасом.
   const { rows } = await db.query(`
     SELECT l.id, l.street, l.house_number, l.property_type, l.deal_type, l.rooms, l.condition, l.pets_allowed, l.furnished, c.name as city_name
     FROM listings l JOIN cities c ON c.id = l.city_id
-    WHERE l.status = 'active' AND NOT EXISTS (SELECT 1 FROM listing_photos WHERE listing_id = l.id)
+    WHERE l.status = 'active' AND l.created_at < NOW() - INTERVAL '1 hour'
+      AND NOT EXISTS (SELECT 1 FROM listing_photos WHERE listing_id = l.id)
     ORDER BY l.created_at ASC
   `);
   const imageCache = new Map();
