@@ -36,7 +36,7 @@ function buildPrompt(fullName, birthDate) {
 
 async function checkIdDocument(buffer, mimeType, { name, surname, birthDate }, lang = 'ru') {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return { ok: true, debug: 'no_key' }; // AI не настроен — не блокируем, решение целиком за модератором
+  if (!key) return { ok: true }; // AI не настроен — не блокируем, решение целиком за модератором
 
   const l = safeLang(lang);
   const fullName = [name, surname].filter(Boolean).join(' ');
@@ -53,19 +53,19 @@ async function checkIdDocument(buffer, mimeType, { name, surname, birthDate }, l
     const data = await res.json();
     if (!res.ok) {
       console.error('ID document check AI error:', data.error?.message);
-      return { ok: true, debug: 'api_error: ' + (data.error?.message || res.status) }; // ошибка AI — не блокируем, модератор проверит вручную
+      return { ok: true }; // ошибка AI — не блокируем, модератор проверит вручную
     }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { ok: true, debug: 'no_text: ' + JSON.stringify(data).slice(0, 300) };
+    if (!text) return { ok: true };
     const parsed = JSON.parse(text);
 
-    if (!parsed.isIdDocument) return { ok: false, reason: mt('idDocNotDocument', l), debug: parsed };
-    if (!parsed.readable) return { ok: false, reason: mt('idDocUnreadable', l), debug: parsed };
-    if (!parsed.nameMatches || !parsed.dobMatches) return { ok: false, reason: mt('idDocMismatch', l), debug: parsed };
-    return { ok: true, debug: parsed };
+    if (!parsed.isIdDocument) return { ok: false, reason: mt('idDocNotDocument', l) };
+    if (!parsed.readable) return { ok: false, reason: mt('idDocUnreadable', l) };
+    if (!parsed.nameMatches || !parsed.dobMatches) return { ok: false, reason: mt('idDocMismatch', l) };
+    return { ok: true };
   } catch (err) {
     console.error('ID document check error:', err);
-    return { ok: true, debug: 'exception: ' + err.message };
+    return { ok: true };
   }
 }
 
