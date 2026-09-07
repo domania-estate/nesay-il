@@ -58,6 +58,7 @@ app.use('/api/admin',    require('./routes/admin'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/ai-search', aiSearchLimiter, require('./routes/aiSearch'));
 app.use('/api/super-admin', require('./routes/superAdmin'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 app.get('/api/cities', async (req, res) => {
   try {
@@ -459,3 +460,12 @@ app.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
   console.log(`Сайт: http://localhost:${PORT}/Nesay_IL.html`);
 });
+
+// Поздравления с днём рождения + начисление 50₪ — проверяем сразу при
+// старте (чтобы не ждать первого тика после деплоя) и затем раз в час
+// (идемпотентно, см. birthdayBonus.js).
+const { processBirthdayBonuses } = require('./lib/birthdayBonus');
+processBirthdayBonuses().catch((err) => console.error('Birthday bonus error:', err));
+setInterval(() => {
+  processBirthdayBonuses().catch((err) => console.error('Birthday bonus error:', err));
+}, 60 * 60 * 1000);

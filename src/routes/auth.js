@@ -327,7 +327,11 @@ router.put('/id-document', requireAuth, async (req, res) => {
   }
 });
 
-// Обновление имени/телефона/даты рождения
+// Обновление имени/телефона/даты рождения. Дату рождения можно
+// установить только один раз (пока она ещё NULL) — дальше COALESCE
+// не даёт её перезаписать, чтобы нельзя было переставлять её каждый
+// месяц ради поздравительных 50₪. Исправить ошибочно введённую дату
+// может только поддержка через PUT /admin/users/:id/birth-date.
 router.put('/profile', requireAuth, [
   body('name').trim().notEmpty(),
 ], async (req, res) => {
@@ -336,7 +340,7 @@ router.put('/profile', requireAuth, [
   const { name, phone, birthDate } = req.body;
   try {
     await db.query(
-      'UPDATE users SET name = $1, phone = $2, birth_date = $3 WHERE id = $4',
+      'UPDATE users SET name = $1, phone = $2, birth_date = COALESCE(birth_date, $3) WHERE id = $4',
       [name, phone || null, birthDate || null, req.user.id]
     );
     res.json({ success: true });

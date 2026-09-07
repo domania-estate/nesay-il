@@ -109,6 +109,22 @@ router.post('/users/:id/unblock', requireModerator, async (req, res) => {
   }
 });
 
+// Исправить дату рождения — единственный способ её изменить после
+// регистрации (обычный /auth/profile её больше не перезаписывает,
+// см. комментарий там), чтобы никто не мог переставлять её каждый
+// месяц ради поздравительных 50₪.
+router.put('/users/:id/birth-date', requireModerator, async (req, res) => {
+  const { birthDate } = req.body;
+  if (!birthDate) return res.status(400).json({ error: 'Укажите дату' });
+  try {
+    const result = await db.query('UPDATE users SET birth_date = $1 WHERE id = $2 RETURNING id, birth_date', [birthDate, req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, birth_date: result.rows[0].birth_date });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Изменить баланс пользователя (плюс или минус)
 router.post('/users/:id/balance', requireModerator, async (req, res) => {
   const { amount } = req.body;
