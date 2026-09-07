@@ -57,6 +57,7 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/admin',    require('./routes/admin'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/ai-search', aiSearchLimiter, require('./routes/aiSearch'));
+app.use('/api/super-admin', require('./routes/superAdmin'));
 
 app.get('/api/cities', async (req, res) => {
   try {

@@ -44,4 +44,30 @@ async function requireModerator(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, optionalAuth, requireModerator };
+// Кабинет владельца — совсем отдельная авторизация от обычных пользователей
+// сайта (своя таблица super_admins, свой логин), токен явно помечен
+// { superAdmin: true }, и мы ещё раз проверяем по базе, что такой аккаунт
+// всё ещё существует (можно отозвать доступ, удалив строку).
+async function requireSuperAdmin(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Нужна авторизация' });
+  }
+  let payload;
+  try {
+    payload = jwt.verify(header.slice(7), process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ error: 'Токен недействителен' });
+  }
+  if (!payload.superAdmin) return res.status(403).json({ error: 'Доступ запрещён' });
+  try {
+    const result = await db.query('SELECT id FROM super_admins WHERE id = $1', [payload.id]);
+    if (!result.rows.length) return res.status(403).json({ error: 'Доступ запрещён' });
+    req.superAdmin = payload;
+    next();
+  } catch (err) {
+    return res.status(500).json({ error: 'Ошибка проверки прав' });
+  }
+}
+
+module.exports = { requireAuth, optionalAuth, requireModerator, requireSuperAdmin };

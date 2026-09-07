@@ -845,6 +845,23 @@ router.post('/:id/boost', requireAuth, async (req, res) => {
   }
 });
 
+// Отметить объявление как продано/сдано — нужно для статистики "объявлений
+// продано за период" в панелях владельца/менеджеров, до этого такой отметки
+// в проекте не было вообще. Снимаем с публикации (status='removed'), но
+// оставляем sold_at — отличает "нашли покупателя" от просто "удалил".
+router.post('/:id/mark-sold', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE listings SET status = 'removed', sold_at = NOW() WHERE id = $1 AND user_id = $2 AND sold_at IS NULL RETURNING id`,
+      [req.params.id, req.user.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // ═══ МОДЕРАЦИЯ ═══
 // Список объявлений на проверке
 router.get('/moderation/pending', requireModerator, async (req, res) => {

@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../../config/db');
 const { requireModerator } = require('../middleware/auth');
 const { enrichDemoListings, backfillListingDetails } = require('../lib/enrichListings');
+const platformStats = require('../lib/platformStats');
 
 const router = express.Router();
 
@@ -121,6 +122,22 @@ router.post('/users/:id/balance', requireModerator, async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
     res.json({ success: true, credits: result.rows[0].credits });
   } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Расширенная статистика для панели менеджеров — сколько риелторов, клиентов,
+// агентств, объектов по типам, продано за период. В отличие от кабинета
+// владельца, здесь НЕТ полного списка клиентов с контактами — только счётчики
+// (владелец сам просил, чтобы полная база клиентов была только у него одного).
+router.get('/platform-stats', requireModerator, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const overview = await platformStats.getOverviewStats({ from, to });
+    const soldByPeriod = await platformStats.getSoldByPeriods();
+    res.json({ ...overview, soldByPeriod });
+  } catch (err) {
+    console.error('Platform stats error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
