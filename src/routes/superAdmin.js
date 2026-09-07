@@ -107,4 +107,60 @@ router.get('/properties', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// Полная карточка объявления вне зависимости от статуса — обычный
+// GET /listings/:id отдаёт только активные (см. комментарий там), а
+// владельцу нужно уметь открыть и заблокированное/отклонённое/снятое.
+router.get('/properties/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT l.*, c.name AS city_name,
+        u.name AS owner_name, u.email AS owner_email, u.phone AS owner_phone,
+        (SELECT json_agg(url ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS all_photos
+      FROM listings l
+      JOIN cities c ON c.id = l.city_id
+      JOIN users u ON u.id = l.user_id
+      WHERE l.id = $1
+    `, [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Property detail error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Заблокировать/разблокировать объявление — пока доступно только владельцу
+// (отдельно от обычной модерации, для явного ручного вмешательства).
+// Текущий статус запоминаем в blocked_prior_status, чтобы разблокировка
+// вернула объявление туда, откуда его сняли, а не всегда в 'active'.
+router.post('/properties/:id/block', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE listings SET blocked_prior_status = status, status = 'blocked'
+       WHERE id = $1 AND status != 'blocked' RETURNING id`,
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено или уже заблокировано' });
+    res.json({ success: true, status: 'blocked' });
+  } catch (err) {
+    console.error('Block listing error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/properties/:id/unblock', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE listings SET status = COALESCE(blocked_prior_status, 'active'), blocked_prior_status = NULL
+       WHERE id = $1 AND status = 'blocked' RETURNING id, status`,
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено или не заблокировано' });
+    res.json({ success: true, status: result.rows[0].status });
+  } catch (err) {
+    console.error('Unblock listing error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 module.exports = router;
