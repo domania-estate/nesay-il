@@ -6,6 +6,8 @@ const db      = require('../../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 const { creditReferralIfEligible } = require('../lib/referralGuard');
+const { checkIdDocument } = require('../lib/idDocumentCheck');
+const { t: mt, safeLang } = require('../lib/moderationI18n');
 
 const router = express.Router();
 
@@ -310,14 +312,32 @@ router.put('/avatar', requireAuth, async (req, res) => {
 
 // Загрузка фото документа, удостоверяющего личность (для верификации).
 // Хранится в отдельной приватной с точки зрения именования подпапке
-// того же bucket'а, что и остальные загрузки пользователя.
+// того же bucket'а, что и остальные загрузки пользователя. Перед загрузкой
+// AI сверяет имя/дату рождения на документе с профилем (checkIdDocument) —
+// это только предварительный фильтр против явно чужих/нечитаемых фото,
+// окончательно подтверждает документ модератор вручную (verified остаётся
+// false, см. /admin/verification).
 router.put('/id-document', requireAuth, async (req, res) => {
-  const { photoBase64, fileName } = req.body;
+  const { photoBase64, fileName, lang } = req.body;
   if (!photoBase64) return res.status(400).json({ error: 'Файл не передан' });
+  const l = safeLang(lang);
   try {
-    const userResult = await db.query('SELECT email FROM users WHERE id = $1', [req.user.id]);
-    const email = userResult.rows[0]?.email || 'user';
-    const url = await uploadIdDocumentFile(photoBase64, fileName, email);
+    const userResult = await db.query('SELECT email, name, surname, birth_date FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: mt('notFound', l) });
+    const user = userResult.rows[0];
+
+    const matches = photoBase64.match(/^data:([A-Za-z0-9\-+/]+);base64,(.+)$/);
+    if (matches) {
+      const check = await checkIdDocument(
+        Buffer.from(matches[2], 'base64'),
+        matches[1],
+        { name: user.name, surname: user.surname, birthDate: user.birth_date },
+        l
+      );
+      if (!check.ok) return res.status(400).json({ error: check.reason });
+    }
+
+    const url = await uploadIdDocumentFile(photoBase64, fileName, user.email);
     if (!url) return res.status(500).json({ error: 'Не удалось загрузить файл' });
     await db.query('UPDATE users SET id_document_url = $1 WHERE id = $2', [url, req.user.id]);
     res.json({ success: true, id_document_url: url });
