@@ -327,6 +327,7 @@ router.put('/id-document', requireAuth, async (req, res) => {
     const user = userResult.rows[0];
 
     const matches = photoBase64.match(/^data:([A-Za-z0-9\-+/]+);base64,(.+)$/);
+    let _debug;
     if (matches) {
       const check = await checkIdDocument(
         Buffer.from(matches[2], 'base64'),
@@ -334,13 +335,14 @@ router.put('/id-document', requireAuth, async (req, res) => {
         { name: user.name, surname: user.surname, birthDate: user.birth_date },
         l
       );
-      if (!check.ok) return res.status(400).json({ error: check.reason });
+      _debug = check.debug;
+      if (!check.ok) return res.status(400).json({ error: check.reason, _debug });
     }
 
     const url = await uploadIdDocumentFile(photoBase64, fileName, user.email);
     if (!url) return res.status(500).json({ error: 'Не удалось загрузить файл' });
     await db.query('UPDATE users SET id_document_url = $1 WHERE id = $2', [url, req.user.id]);
-    res.json({ success: true, id_document_url: url });
+    res.json({ success: true, id_document_url: url, _debug });
   } catch (err) {
     console.error('ID document upload error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
