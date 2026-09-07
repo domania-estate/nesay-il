@@ -142,6 +142,48 @@ router.post('/users/:id/balance', requireModerator, async (req, res) => {
   }
 });
 
+// Проверка документов, удостоверяющих личность (теудат зеут/загранпаспорт),
+// загруженных через PUT /auth/id-document. Список разбит на два по полю
+// verified — ожидающие проверки (документ есть, ещё не подтверждён) и уже
+// подтверждённые (для справки/аудита, у кого что было принято).
+router.get('/verifications', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT id, name, surname, email, phone, role, verified, id_document_url, created_at
+      FROM users
+      WHERE id_document_url IS NOT NULL
+      ORDER BY verified ASC, created_at DESC
+    `);
+    res.json({
+      pending: result.rows.filter((u) => !u.verified),
+      verified: result.rows.filter((u) => u.verified),
+    });
+  } catch (err) {
+    console.error('Verifications list error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/users/:id/verify', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET verified = true WHERE id = $1 RETURNING id, verified', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, verified: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/users/:id/unverify', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET verified = false WHERE id = $1 RETURNING id, verified', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, verified: false });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Расширенная статистика для панели менеджеров — сколько риелторов, клиентов,
 // агентств, объектов по типам, продано за период. В отличие от кабинета
 // владельца, здесь НЕТ полного списка клиентов с контактами — только счётчики
