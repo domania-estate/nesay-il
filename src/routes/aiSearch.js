@@ -41,12 +41,15 @@ function textHasKeyword(description, key) {
 
 function matchesCriterion(listing, key) {
   switch (key) {
+    // Теперь это настоящие поля объявления (чекбоксы в форме), а не только
+    // догадка по тексту описания — но у объявлений, созданных до этого,
+    // amenities может быть пустым, тогда всё ещё подстраховываемся текстом.
     case 'mamad':
-      return textHasKeyword(listing.description, 'mamad');
+      return listing.amenities?.mamad === true || textHasKeyword(listing.description, 'mamad');
     case 'parking':
-      return textHasKeyword(listing.description, 'parking');
+      return listing.amenities?.parking === true || textHasKeyword(listing.description, 'parking');
     case 'balcony':
-      return textHasKeyword(listing.description, 'balcony');
+      return listing.amenities?.balcony === true || textHasKeyword(listing.description, 'balcony');
     case 'pets':
       return listing.pets_allowed === 'yes' || listing.pets_allowed === 'small_dog' || listing.pets_allowed === 'small_cat';
     case 'furnished':
