@@ -357,11 +357,11 @@ router.put('/profile', requireAuth, [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  const { name, phone, birthDate } = req.body;
+  const { name, surname, phone, birthDate } = req.body;
   try {
     await db.query(
-      'UPDATE users SET name = $1, phone = $2, birth_date = COALESCE(birth_date, $3) WHERE id = $4',
-      [name, phone || null, birthDate || null, req.user.id]
+      'UPDATE users SET name = $1, surname = $2, phone = $3, birth_date = COALESCE(birth_date, $4) WHERE id = $5',
+      [name, surname || null, phone || null, birthDate || null, req.user.id]
     );
     res.json({ success: true });
   } catch (err) {
