@@ -134,7 +134,7 @@ router.post('/register', [
       [email, hash, name, surname || null, phone, role,
        agencyDataJson, clientDataJson, ownerDataJson, avatarUrl, birthDate || null,
        role === 'agent' ? 3 : 0,
-       role === 'agent' ? false : true, // агент — не верифицирован до проверки модератором
+       false, // verified теперь всегда только через чек-лист (email/телефон/дата/документ и т.д.) + подтверждение модератором/владельцем, см. /admin/verification — раньше не-агентам verified ставился true сразу при регистрации в обход всей этой проверки
        req.ip || null, device_id || null]
     );
 
