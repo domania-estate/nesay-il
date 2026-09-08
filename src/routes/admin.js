@@ -34,15 +34,20 @@ router.post('/backfill-listing-details', requireModerator, async (req, res) => {
   }
 });
 
-// Список всех пользователей со статистикой (для CRM модераторов)
+// Список всех пользователей со статистикой (для CRM модераторов).
+// revenue_generated — по ₪100 за каждое когда-либо созданное объявление
+// (та же логика дохода платформы, что и в lib/platformStats.js), а не
+// total_deposited (это отдельная сущность — самостоятельно задекларированные
+// пополнения баланса через payments, реальной оплаты картой в проекте нет).
 router.get('/users', requireModerator, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT
         u.id, u.name, u.surname, u.email, u.phone, u.role, u.verified, u.is_moderator, u.blocked,
-        u.credits, u.created_at,
+        u.credits, u.birth_date, u.id_document_url, u.created_at,
         (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id AND l.status != 'removed') AS listings_count,
         (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id AND l.status = 'pending_review') AS pending_count,
+        (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) * 100 AS revenue_generated,
         (SELECT COUNT(*) FROM referrals r WHERE r.referrer_id = u.id) AS referrals_count,
         COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.user_id = u.id AND p.status = 'completed'), 0) / 100.0 AS total_deposited
       FROM users u
@@ -180,6 +185,71 @@ router.post('/users/:id/unverify', requireModerator, async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
     res.json({ success: true, verified: false });
   } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Полный список объектов с фильтрами — то же самое, что у владельца
+// (stats.getProperties), теперь доступно и менеджерам для управления.
+router.get('/properties', requireModerator, async (req, res) => {
+  try {
+    const { type, status } = req.query;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const offset = parseInt(req.query.offset, 10) || 0;
+    const data = await platformStats.getProperties({ type, status, limit, offset });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.get('/properties/:id', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT l.*, c.name AS city_name,
+        u.name AS owner_name, u.email AS owner_email, u.phone AS owner_phone,
+        (SELECT json_agg(url ORDER BY sort_order) FROM listing_photos WHERE listing_id = l.id) AS all_photos
+      FROM listings l
+      JOIN cities c ON c.id = l.city_id
+      JOIN users u ON u.id = l.user_id
+      WHERE l.id = $1
+    `, [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Property detail error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Заблокировать/разблокировать объект — то же действие, что раньше было
+// только у владельца (super-admin), теперь доступно и менеджерам.
+router.post('/properties/:id/block', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE listings SET blocked_prior_status = status, status = 'blocked'
+       WHERE id = $1 AND status != 'blocked' RETURNING id`,
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено или уже заблокировано' });
+    res.json({ success: true, status: 'blocked' });
+  } catch (err) {
+    console.error('Block listing error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/properties/:id/unblock', requireModerator, async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE listings SET status = COALESCE(blocked_prior_status, 'active'), blocked_prior_status = NULL
+       WHERE id = $1 AND status = 'blocked' RETURNING id, status`,
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено или не заблокировано' });
+    res.json({ success: true, status: result.rows[0].status });
+  } catch (err) {
+    console.error('Unblock listing error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
