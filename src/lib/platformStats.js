@@ -97,8 +97,11 @@ async function getRevenueChart({ from, to } = {}) {
 
 async function getClients({ limit = 50, offset = 0 } = {}) {
   const res = await db.query(
-    `SELECT id, name, surname, email, phone, role, credits, verified, blocked, id_document_url, created_at
-     FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+    `SELECT id, name, surname, email, phone, role, credits, verified, blocked, id_document_url, birth_date,
+       (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) * 100 AS revenue_generated,
+       (SELECT COUNT(*) FROM referrals r WHERE r.referrer_id = u.id) AS referrals_count,
+       created_at
+     FROM users u ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
   const total = await db.query('SELECT COUNT(*) AS cnt FROM users');
@@ -107,8 +110,10 @@ async function getClients({ limit = 50, offset = 0 } = {}) {
 
 async function getRealtors({ limit = 100, offset = 0 } = {}) {
   const res = await db.query(
-    `SELECT u.id, u.name, u.surname, u.email, u.phone, u.verified, u.id_document_url, u.created_at, u.agency_id, a.name AS agency_name,
-       (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS listings_count
+    `SELECT u.id, u.name, u.surname, u.email, u.phone, u.verified, u.blocked, u.credits, u.id_document_url, u.birth_date, u.created_at, u.agency_id, a.name AS agency_name,
+       (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS listings_count,
+       (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) * 100 AS revenue_generated,
+       (SELECT COUNT(*) FROM referrals r WHERE r.referrer_id = u.id) AS referrals_count
      FROM users u LEFT JOIN agencies a ON a.id = u.agency_id
      WHERE u.role = 'agent' ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`,
     [limit, offset]

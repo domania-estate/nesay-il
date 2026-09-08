@@ -110,6 +110,46 @@ router.post('/users/:id/unverify', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// Чёрный список — то же действие, что у менеджеров (POST /admin/users/:id/block),
+// под авторизацией владельца.
+router.post('/users/:id/block', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET blocked = true WHERE id = $1 RETURNING id, blocked', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, blocked: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/users/:id/unblock', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET blocked = false WHERE id = $1 RETURNING id, blocked', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, blocked: false });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Начислить/списать баланс (форс-мажоры, ошибки сервиса) — то же действие,
+// что у менеджеров (POST /admin/users/:id/balance).
+router.post('/users/:id/balance', requireSuperAdmin, async (req, res) => {
+  const { amount } = req.body;
+  const delta = parseInt(amount, 10);
+  if (!delta) return res.status(400).json({ error: 'Укажите сумму' });
+  try {
+    const result = await db.query(
+      'UPDATE users SET credits = GREATEST(0, credits + $1) WHERE id = $2 RETURNING id, credits',
+      [delta, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, credits: result.rows[0].credits });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/agencies', requireSuperAdmin, async (req, res) => {
   try {
     const rows = await stats.getAgencies();
