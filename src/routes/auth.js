@@ -133,7 +133,7 @@ router.post('/register', [
        RETURNING id, email, name, role, credits`,
       [email, hash, name, surname || null, phone, role,
        agencyDataJson, clientDataJson, ownerDataJson, avatarUrl, birthDate || null,
-       role === 'agent' ? 3 : 0,
+       0, // раньше агентам при регистрации начислялось 3₪ бесплатно (старый тестовый хардкод из самого первого коммита) — баланс новых аккаунтов должен начинаться с нуля
        false, // verified теперь всегда только через чек-лист (email/телефон/дата/документ и т.д.) + подтверждение модератором/владельцем, см. /admin/verification — раньше не-агентам verified ставился true сразу при регистрации в обход всей этой проверки
        req.ip || null, device_id || null]
     );
