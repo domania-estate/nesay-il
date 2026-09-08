@@ -9,6 +9,7 @@ const db = require('../../config/db');
 const { requireSuperAdmin } = require('../middleware/auth');
 const stats = require('../lib/platformStats');
 const { rateLimitMiddleware } = require('../lib/rateLimit');
+const { notify, DOC_VERIFIED_TITLE, DOC_VERIFIED_BODY, DOC_REJECTED_TITLE, docRejectedBody } = require('../lib/notify');
 
 const router = express.Router();
 
@@ -66,6 +67,15 @@ router.get('/revenue-chart', requireSuperAdmin, async (req, res) => {
   }
 });
 
+router.get('/revenue-by-month', requireSuperAdmin, async (req, res) => {
+  try {
+    const data = await stats.getRevenueByMonth();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/clients', requireSuperAdmin, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
@@ -94,8 +104,46 @@ router.post('/users/:id/verify', requireSuperAdmin, async (req, res) => {
   try {
     const result = await db.query('UPDATE users SET verified = true WHERE id = $1 RETURNING id, verified', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    await notify(req.params.id, 'document_verified', DOC_VERIFIED_TITLE, DOC_VERIFIED_BODY);
     res.json({ success: true, verified: true });
   } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Отклонить документ с комментарием — то же действие, что у менеджеров.
+router.post('/users/:id/reject-document', requireSuperAdmin, async (req, res) => {
+  const { comment } = req.body;
+  try {
+    const result = await db.query(
+      'UPDATE users SET verified = false, id_document_url = NULL WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    await notify(req.params.id, 'document_rejected', DOC_REJECTED_TITLE, docRejectedBody(comment));
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reject document error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Список заявок на верификацию — то же самое, что у менеджеров
+// (GET /admin/verifications), под авторизацией владельца.
+router.get('/verifications', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT id, name, surname, email, phone, role, verified, id_document_url, birth_date, short_id, created_at
+      FROM users
+      WHERE id_document_url IS NOT NULL
+      ORDER BY verified ASC, created_at DESC
+    `);
+    res.json({
+      pending: result.rows.filter((u) => !u.verified),
+      verified: result.rows.filter((u) => u.verified),
+    });
+  } catch (err) {
+    console.error('Verifications list error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

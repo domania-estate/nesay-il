@@ -49,6 +49,12 @@ async function getOverviewStats({ from, to } = {}) {
   const propertiesByType = {};
   for (const row of byType.rows) propertiesByType[row.property_type] = parseInt(row.cnt, 10);
 
+  // Продвижение объявлений сейчас бесплатное (просто поднимает в выдаче на
+  // 24 часа, см. POST /listings/:id/boost) — списания кредитов за него нет
+  // и истории покупок никто не вёл, поэтому это НЕ доход, а просто счётчик
+  // сейчас активных продвижений.
+  const activePromotions = await db.query(`SELECT COUNT(*) AS cnt FROM listings WHERE promoted = true AND promo_until > NOW()`);
+
   return {
     totalUsers: parseInt(totalUsers.rows[0].cnt, 10),
     realtors: parseInt(realtors.rows[0].cnt, 10),
@@ -58,6 +64,7 @@ async function getOverviewStats({ from, to } = {}) {
     propertiesByType,
     listingsSold: parseInt(sold.rows[0].cnt, 10),
     revenue,
+    activePromotions: parseInt(activePromotions.rows[0].cnt, 10),
   };
 }
 
@@ -93,6 +100,33 @@ async function getRevenueChart({ from, to } = {}) {
     range.params
   );
   return res.rows.map((r) => ({ date: r.bucket, revenue: parseInt(r.cnt, 10) * LISTING_PUBLISH_COST, count: parseInt(r.cnt, 10) }));
+}
+
+// Доход по месяцам за всё время + отдельно текущий и прошлый месяц —
+// для отдельной вкладки "Доход" в кабинете владельца.
+async function getRevenueByMonth() {
+  const byMonth = await db.query(
+    `SELECT date_trunc('month', created_at) AS month, COUNT(*) AS cnt
+     FROM listings GROUP BY month ORDER BY month DESC`
+  );
+  const rows = byMonth.rows.map((r) => ({ month: r.month, count: parseInt(r.cnt, 10), revenue: parseInt(r.cnt, 10) * LISTING_PUBLISH_COST }));
+
+  const thisMonth = await db.query(
+    `SELECT COUNT(*) AS cnt FROM listings WHERE created_at >= date_trunc('month', CURRENT_DATE)`
+  );
+  const lastMonth = await db.query(
+    `SELECT COUNT(*) AS cnt FROM listings
+     WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+       AND created_at < date_trunc('month', CURRENT_DATE)`
+  );
+  const allTime = await db.query('SELECT COUNT(*) AS cnt FROM listings');
+
+  return {
+    byMonth: rows,
+    thisMonth: parseInt(thisMonth.rows[0].cnt, 10) * LISTING_PUBLISH_COST,
+    lastMonth: parseInt(lastMonth.rows[0].cnt, 10) * LISTING_PUBLISH_COST,
+    allTime: parseInt(allTime.rows[0].cnt, 10) * LISTING_PUBLISH_COST,
+  };
 }
 
 async function getClients({ limit = 50, offset = 0 } = {}) {
@@ -158,6 +192,7 @@ module.exports = {
   getOverviewStats,
   getSoldByPeriods,
   getRevenueChart,
+  getRevenueByMonth,
   getClients,
   getRealtors,
   getAgencies,
