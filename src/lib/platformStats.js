@@ -97,7 +97,7 @@ async function getRevenueChart({ from, to } = {}) {
 
 async function getClients({ limit = 50, offset = 0 } = {}) {
   const res = await db.query(
-    `SELECT id, name, surname, email, phone, role, credits, verified, blocked, created_at
+    `SELECT id, name, surname, email, phone, role, credits, verified, blocked, id_document_url, created_at
      FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
@@ -107,7 +107,7 @@ async function getClients({ limit = 50, offset = 0 } = {}) {
 
 async function getRealtors({ limit = 100, offset = 0 } = {}) {
   const res = await db.query(
-    `SELECT u.id, u.name, u.surname, u.email, u.phone, u.verified, u.created_at, u.agency_id, a.name AS agency_name,
+    `SELECT u.id, u.name, u.surname, u.email, u.phone, u.verified, u.id_document_url, u.created_at, u.agency_id, a.name AS agency_name,
        (SELECT COUNT(*) FROM listings l WHERE l.user_id = u.id) AS listings_count
      FROM users u LEFT JOIN agencies a ON a.id = u.agency_id
      WHERE u.role = 'agent' ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`,

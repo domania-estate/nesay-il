@@ -86,6 +86,30 @@ router.get('/realtors', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// Подтвердить/снять подтверждение личности — то же самое действие, что
+// доступно менеджерам на /admin/verification (POST /admin/users/:id/verify),
+// но здесь под отдельной авторизацией владельца (requireSuperAdmin), т.к.
+// кабинет владельца не использует обычные токены пользователей/модераторов.
+router.post('/users/:id/verify', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET verified = true WHERE id = $1 RETURNING id, verified', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, verified: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+router.post('/users/:id/unverify', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query('UPDATE users SET verified = false WHERE id = $1 RETURNING id, verified', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ success: true, verified: false });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 router.get('/agencies', requireSuperAdmin, async (req, res) => {
   try {
     const rows = await stats.getAgencies();
