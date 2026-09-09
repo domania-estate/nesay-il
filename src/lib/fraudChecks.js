@@ -73,7 +73,7 @@ async function checkDuplicateAddress(listingId, userId, cityId, street, houseNum
 
     const rows = await db.query(`SELECT id FROM listings l WHERE ${conditions.join(' AND ')} LIMIT 5`, params);
     if (rows.rows.length > 0) {
-      return { ok: false, reason: `⚠️ Похожий адрес уже опубликован другим пользователем (${rows.rows.length} объявлений)` };
+      return { ok: false, reason: `Похожий адрес уже опубликован другим пользователем (${rows.rows.length} объявлений)` };
     }
     return { ok: true };
   } catch (e) {
@@ -92,7 +92,7 @@ async function checkRepeatedPhone(userId, phone) {
       [userId, phone]
     );
     if (rows.rows.length > 0) {
-      return { ok: false, reason: `⚠️ Этот телефон уже используется другим аккаунтом (${rows.rows.length})` };
+      return { ok: false, reason: `Этот телефон уже используется другим аккаунтом (${rows.rows.length})` };
     }
     return { ok: true };
   } catch (e) {
@@ -118,7 +118,7 @@ async function checkListingVelocity(userId) {
     );
     const cnt = parseInt(rows.rows[0].cnt, 10) + 1; // +1 — это объявление ещё не создано на момент проверки
     if (cnt >= VELOCITY_THRESHOLD) {
-      return { ok: false, reason: `⚠️ Слишком много объявлений с одного аккаунта за короткое время (${cnt} за ${VELOCITY_WINDOW_MINUTES} мин.)` };
+      return { ok: false, reason: `Слишком много объявлений с одного аккаунта за короткое время (${cnt} за ${VELOCITY_WINDOW_MINUTES} мин.)` };
     }
     return { ok: true };
   } catch (e) {

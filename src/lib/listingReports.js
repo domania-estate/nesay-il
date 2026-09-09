@@ -59,7 +59,7 @@ async function fileReport(listingId, userId, reason) {
       [listingId]
     );
     const breakdown = reasonsRes.rows.map((r) => `${REASON_LABELS[r.reason] || r.reason}: ${r.count}`).join(', ');
-    const moderationNote = `⚠️ Жалобы пользователей (${totalReports}): ${breakdown}`;
+    const moderationNote = `Жалобы пользователей (${totalReports}): ${breakdown}`;
     const updateRes = await db.query(
       `UPDATE listings
        SET status = 'pending_review',
