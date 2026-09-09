@@ -3,7 +3,7 @@ const db = require('../../config/db');
 const { requireModerator } = require('../middleware/auth');
 const { enrichDemoListings, backfillListingDetails } = require('../lib/enrichListings');
 const platformStats = require('../lib/platformStats');
-const { notify, DOC_VERIFIED_TITLE, DOC_VERIFIED_BODY, DOC_REJECTED_TITLE, docRejectedBody } = require('../lib/notify');
+const { notify, DOC_VERIFIED_TITLE, DOC_VERIFIED_BODY, DOC_REJECTED_TITLE, docRejectedBody, balanceChangedTitle, balanceChangedBody } = require('../lib/notify');
 
 const router = express.Router();
 
@@ -142,6 +142,7 @@ router.post('/users/:id/balance', requireModerator, async (req, res) => {
       [delta, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    notify(req.params.id, 'balance_changed', balanceChangedTitle(delta), balanceChangedBody(delta), delta);
     res.json({ success: true, credits: result.rows[0].credits });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });

@@ -126,4 +126,25 @@ async function notifyMatchingSearches(listing) {
   }
 }
 
-module.exports = { notifyMatchingSearches, matchesSearch, isPointInPolygon };
+// Универсальная отправка push одному пользователю на все его устройства
+// (используется для сообщений в чате, уведомлений о документах, ДР и т.д. —
+// в отличие от notifyMatchingSearches, которая рассылает по подпискам на поиск).
+async function sendPushToUser(userId, title, body, data = {}) {
+  try {
+    const tokens = await db.query('SELECT token, platform FROM push_tokens WHERE user_id = $1', [userId]);
+    const expoTokens = [];
+    const webTokens = [];
+    for (const row of tokens.rows) {
+      if (row.platform === 'web') webTokens.push(row.token);
+      else expoTokens.push(row.token);
+    }
+    await Promise.all([
+      sendExpoPush(expoTokens, title, body, data),
+      sendWebPush(webTokens, title, body, data),
+    ]);
+  } catch (err) {
+    console.error('sendPushToUser error:', err.message);
+  }
+}
+
+module.exports = { notifyMatchingSearches, matchesSearch, isPointInPolygon, sendPushToUser };

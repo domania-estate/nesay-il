@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../../config/db');
 const { requireAuth } = require('../middleware/auth');
+const { sendPushToUser } = require('../lib/pushNotify');
 const router = express.Router();
 
 // Список всех чатов текущего пользователя
@@ -113,6 +114,17 @@ router.post('/conversations/:id/send', requireAuth, async (req, res) => {
       [req.params.id, req.user.id, text.trim()]
     );
     res.json(msg.rows[0]);
+
+    // Пуш получателю (не самому себе) — заголовок с именем+фамилией отправителя,
+    // как он зарегистрирован в системе.
+    const recipientId = c.buyer_id === req.user.id ? c.seller_id : c.buyer_id;
+    if (recipientId !== req.user.id) {
+      const senderRow = await db.query('SELECT name, surname FROM users WHERE id = $1', [req.user.id]);
+      const sender = senderRow.rows[0];
+      const senderName = [sender?.name, sender?.surname].filter(Boolean).join(' ') || 'Пользователь';
+      sendPushToUser(recipientId, `Новое сообщение от ${senderName}`, text.trim(), { conversationId: req.params.id })
+        .catch((err) => console.error('chat push error:', err.message));
+    }
   } catch (err) {
     console.error('Send message error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });

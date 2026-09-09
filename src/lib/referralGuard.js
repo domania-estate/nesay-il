@@ -1,4 +1,5 @@
 const db = require('../../config/db');
+const { notify, REFERRAL_BONUS_TITLE, referralBonusReferrerBody, referralBonusReferredBody } = require('./notify');
 
 // Настройки анти-фрода для реферальной программы.
 const REFERRER_BONUS = 50;
@@ -71,12 +72,14 @@ async function creditReferralIfEligible({ referrerId, referredId, refCode, refer
 
   await db.query('UPDATE users SET credits=credits+$1 WHERE id=$2', [REFERRED_BONUS, referredId]);
   await db.query('UPDATE referrals SET bonus_credited=true, credit_skipped_reason=$1 WHERE referred_id=$2', [reason, referredId]);
+  notify(referredId, 'referral_bonus', REFERRAL_BONUS_TITLE, referralBonusReferredBody(REFERRED_BONUS), REFERRED_BONUS);
 
   if (reason) {
     return { referrerCredited: false, referredCredited: true, reason };
   }
 
   await db.query('UPDATE users SET credits=credits+$1, referral_credits_earned=referral_credits_earned+$1 WHERE id=$2', [REFERRER_BONUS, referrerId]);
+  notify(referrerId, 'referral_bonus', REFERRAL_BONUS_TITLE, referralBonusReferrerBody(REFERRER_BONUS), REFERRER_BONUS);
   return { referrerCredited: true, referredCredited: true, reason: null };
 }
 

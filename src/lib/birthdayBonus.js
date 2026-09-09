@@ -5,6 +5,7 @@
 // обеспечивает уникальный индекс (user_id, year) в birthday_bonus_log —
 // функцию безопасно вызывать многократно в течение дня.
 const db = require('../../config/db');
+const { notify } = require('./notify');
 
 const BONUS_AMOUNT = 50;
 
@@ -39,10 +40,7 @@ async function processBirthdayBonuses() {
     if (!log.rows.length) continue; // уже поздравили в этом году
 
     await db.query('UPDATE users SET credits = credits + $1 WHERE id = $2', [BONUS_AMOUNT, row.id]);
-    await db.query(
-      'INSERT INTO notifications (user_id, type, title, body, credits_awarded) VALUES ($1, $2, $3, $4, $5)',
-      [row.id, 'birthday_bonus', JSON.stringify(TITLE), JSON.stringify(buildBody(BONUS_AMOUNT)), BONUS_AMOUNT]
-    );
+    await notify(row.id, 'birthday_bonus', TITLE, buildBody(BONUS_AMOUNT), BONUS_AMOUNT);
     credited += 1;
   }
   if (credited > 0) console.log(`Birthday bonuses credited: ${credited}`);

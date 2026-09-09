@@ -3,6 +3,7 @@ const db = require('../../config/db');
 const { requireAuth, optionalAuth, requireModerator } = require('../middleware/auth');
 const { createClient } = require('@supabase/supabase-js');
 const { notifyMatchingSearches } = require('../lib/pushNotify');
+const { notify, LISTING_APPROVED_TITLE, listingApprovedBody, LISTING_REJECTED_TITLE, listingRejectedBody } = require('../lib/notify');
 const { computeDHash, hammingDistance } = require('../lib/imageHash');
 const { checkDuplicatePhotos, checkDuplicateAddress, checkRepeatedPhone, checkListingVelocity, DHASH_MATCH_THRESHOLD } = require('../lib/fraudChecks');
 const Jimp = require('jimp');
@@ -889,6 +890,9 @@ router.post('/:id/approve', requireModerator, async (req, res) => {
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
     notifyMatchingSearches(result.rows[0]);
+    const listing = result.rows[0];
+    const address = [listing.street, listing.house_number].filter(Boolean).join(' ');
+    notify(listing.user_id, 'listing_approved', LISTING_APPROVED_TITLE, listingApprovedBody(address));
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -903,10 +907,13 @@ router.post('/:id/reject', requireModerator, async (req, res) => {
     // удалил сам продавец, а "rejected" — что модератор его не пропустил
     // (продавец должен это видеть отдельно, не как будто сам его снял).
     const result = await db.query(
-      "UPDATE listings SET status = 'rejected', moderation_reason = $2 WHERE id = $1 AND status = 'pending_review' RETURNING id",
+      "UPDATE listings SET status = 'rejected', moderation_reason = $2 WHERE id = $1 AND status = 'pending_review' RETURNING id, user_id, street, house_number",
       [req.params.id, reason || 'Отклонено модератором']
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Не найдено' });
+    const listing = result.rows[0];
+    const address = [listing.street, listing.house_number].filter(Boolean).join(' ');
+    notify(listing.user_id, 'listing_rejected', LISTING_REJECTED_TITLE, listingRejectedBody(address, reason));
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
