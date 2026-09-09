@@ -463,10 +463,15 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       if (error) { console.error('Upload error:', error); return null; }
       const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName);
 
-      // Перцептивный хэш — не блокируем загрузку, если он не посчитался
-      // (повреждённый файл и т.п.), просто не участвует в проверке дублей.
+      // Перцептивный хэш считаем по ОРИГИНАЛУ, а не по фото с водяным знаком —
+      // у всех фото на платформе один и тот же центральный водяной знак
+      // DOMANIA, и если хэшировать финальную версию, разные снимки после
+      // наложения становятся визуально похожи друг на друга для dHash,
+      // и проверка дублей начинает ложно срабатывать почти на любом фото.
+      // Не блокируем загрузку, если хэш не посчитался (повреждённый файл
+      // и т.п.), просто не участвует в проверке дублей.
       let phash = null;
-      try { phash = await computeDHash(data); } catch (e) { console.error('dHash error:', e); }
+      try { phash = await computeDHash(original); } catch (e) { console.error('dHash error:', e); }
 
       await db.query('INSERT INTO listing_photos (listing_id, url, sort_order, phash) VALUES ($1, $2, $3, $4)', [req.params.id, urlData.publicUrl, sortOrder, phash]);
 
