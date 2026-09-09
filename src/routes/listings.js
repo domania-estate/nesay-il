@@ -134,7 +134,7 @@ async function verifyPrice(cityId, dealType, price, rooms) {
 
 // Создать объявление
 router.post('/', requireAuth, async (req, res) => {
-  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, floor, total_floors, description, condition, furnished, pets_allowed, seller_type, utilities, sale_reason, amenities } = req.body;
+  const { deal_type, property_type, city_id, street, house_number, lat, lng, price, rooms, sqm, floor, total_floors, description, condition, furnished, pets_allowed, seller_type, utilities, sale_reason, amenities, commission_percent } = req.body;
   if (req.user.role === 'buyer') return res.status(403).json({ error: 'Покупатели не могут публиковать' });
 
   // Полная карточка объявления обязательна — без неё покупатель не может
@@ -183,8 +183,8 @@ router.post('/', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(`
-        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, floor, total_floors, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities, sale_reason, amenities)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+        INSERT INTO listings (user_id, city_id, deal_type, property_type, street, house_number, floor, total_floors, lat, lng, price, rooms, sqm, description, status, moderation_reason, condition, furnished, pets_allowed, seller_type, utilities, sale_reason, amenities, commission_percent)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
         RETURNING *
       `, [
         req.user.id, parseInt(city_id) || 1, deal_type, property_type || 'apartment',
@@ -196,7 +196,8 @@ router.post('/', requireAuth, async (req, res) => {
         JSON.stringify(description || {}),
         status, moderationReason,
         condition || null, furnished || null, pets_allowed || null, seller_type || null,
-        JSON.stringify(utilities || {}), sale_reason || null, JSON.stringify(amenities || {})
+        JSON.stringify(utilities || {}), sale_reason || null, JSON.stringify(amenities || {}),
+        commission_percent != null && commission_percent !== '' ? parseFloat(commission_percent) : null
       ]);
       // Снимаем 100 шекелей за публикацию
       await client.query('UPDATE users SET credits = credits - 100 WHERE id = $1', [req.user.id]);
@@ -775,7 +776,7 @@ router.get('/recommended', requireAuth, async (req, res) => {
 // Каждое реальное изменение цены пишется в listing_price_history — на её
 // основе строится история цены и статистика снижений на детальной странице.
 router.put('/:id', requireAuth, async (req, res) => {
-  const { price, sale_reason, description, amenities } = req.body;
+  const { price, sale_reason, description, amenities, commission_percent } = req.body;
   if (description !== undefined && !String(description?.ru || '').trim()) {
     return res.status(400).json({ error: 'Описание не может быть пустым' });
   }
@@ -793,8 +794,8 @@ router.put('/:id', requireAuth, async (req, res) => {
     try {
       await client.query('BEGIN');
       const result = await client.query(
-        'UPDATE listings SET price = $1, sale_reason = COALESCE($2, sale_reason), description = COALESCE($3, description), amenities = COALESCE($4, amenities), updated_at = NOW() WHERE id = $5 AND user_id = $6 RETURNING *',
-        [newPrice, sale_reason ?? null, description ? JSON.stringify(description) : null, amenities ? JSON.stringify(amenities) : null, req.params.id, req.user.id]
+        'UPDATE listings SET price = $1, sale_reason = COALESCE($2, sale_reason), description = COALESCE($3, description), amenities = COALESCE($4, amenities), commission_percent = COALESCE($5, commission_percent), updated_at = NOW() WHERE id = $6 AND user_id = $7 RETURNING *',
+        [newPrice, sale_reason ?? null, description ? JSON.stringify(description) : null, amenities ? JSON.stringify(amenities) : null, commission_percent != null && commission_percent !== '' ? parseFloat(commission_percent) : null, req.params.id, req.user.id]
       );
       if (newPrice !== current.rows[0].price) {
         // Старые объявления (созданные до этой фичи) не имеют стартовой точки
