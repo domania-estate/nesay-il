@@ -28,10 +28,18 @@ function buildPrompt(lang) {
 appropriate = true только для категории "ok". Если false — коротко объясни причину на ${LANG_NAME[lang] || LANG_NAME.ru} языке.`;
 }
 
+// Возвращает { ok, unavailable } — unavailable=true означает, что проверка
+// СОДЕРЖАНИЯ реально не проводилась (нет ключа, Gemini недоступен/ошибка),
+// а не что фото прошло проверку. Раньше оба случая возвращали одинаковый
+// { ok: true }, и когда Gemini временно отключили (ограничение по биллингу),
+// вообще ЛЮБОЕ фото — фейковое, не по теме, не по адресу — молча проходило
+// как "проверено", хотя проверки не было вовсе. Вызывающий код теперь может
+// отличить "AI одобрил" от "AI не смог проверить" и отправить объявление на
+// ручную модерацию во втором случае, вместо того чтобы полагаться на то, что
+// проверка вообще происходила.
 async function checkPhotoContent(buffer, mimeType, lang = 'ru') {
   const key = process.env.GEMINI_API_KEY;
-  // Если AI не настроен — не блокируем публикацию, просто пропускаем проверку.
-  if (!key) return { ok: true };
+  if (!key) return { ok: true, unavailable: true };
   const l = safeLang(lang);
   try {
     const base64 = buffer.toString('base64');
@@ -46,10 +54,10 @@ async function checkPhotoContent(buffer, mimeType, lang = 'ru') {
     const data = await res.json();
     if (!res.ok) {
       console.error('Photo moderation AI error:', data.error?.message);
-      return { ok: true };
+      return { ok: true, unavailable: true };
     }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { ok: true };
+    if (!text) return { ok: true, unavailable: true };
     const parsed = JSON.parse(text);
     if (!parsed.appropriate) {
       // Gemini уже отвечает "reason" на нужном языке (см. buildPrompt) — метку
@@ -61,8 +69,7 @@ async function checkPhotoContent(buffer, mimeType, lang = 'ru') {
     return { ok: true };
   } catch (e) {
     console.error('checkPhotoContent error:', e);
-    // Сбой AI не должен блокировать публикацию — отправляем на ручную проверку было бы избыточно.
-    return { ok: true };
+    return { ok: true, unavailable: true };
   }
 }
 

@@ -133,7 +133,7 @@ router.post('/users/:id/reject-document', requireSuperAdmin, async (req, res) =>
 router.get('/verifications', requireSuperAdmin, async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT id, name, surname, email, phone, role, verified, id_document_url, birth_date, short_id, created_at
+      SELECT id, name, surname, email, phone, role, verified, id_document_url, id_document_ai_checked, birth_date, short_id, created_at
       FROM users
       WHERE id_document_url IS NOT NULL
       ORDER BY verified ASC, created_at DESC

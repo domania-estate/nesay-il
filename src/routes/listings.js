@@ -496,6 +496,7 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
     allReasons.push(...contentReasons);
 
     let ruleViolation = null;
+    let pendingAiUnavailable = false;
     if (allReasons.length > 0) {
       // Настоящее нарушение правил (фото не по теме/неприемлемо, чужое
       // переиспользованное фото) — не честная техническая накладка, поэтому
@@ -520,6 +521,20 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
           "UPDATE listings SET status = 'active', moderation_reason = NULL, photo_review_attempts = 0, rule_violation_count = 0 WHERE id = $1",
           [req.params.id]
         );
+      } else if (row?.status === 'active' && contentResults.some((r) => r.unavailable)) {
+        // Проверка содержимого фото не смогла запуститься (Gemini недоступен) —
+        // это НЕ то же самое, что "фото проверены и приемлемы". Раньше в этом
+        // случае объявление просто оставалось активным без единой реальной
+        // проверки фото — отправляем на ручную модерацию вместо того, чтобы
+        // молча доверять непройденной проверке. Не считается нарушением
+        // (счётчики попыток не трогаем), это временная мера на время сбоя AI.
+        await db.query(
+          `UPDATE listings SET status = 'pending_review',
+             moderation_reason = CASE WHEN moderation_reason IS NULL THEN $2 ELSE moderation_reason || '; ' || $2 END
+           WHERE id = $1`,
+          [req.params.id, 'Автопроверка содержимого фото недоступна — требуется ручная модерация']
+        );
+        pendingAiUnavailable = true;
       }
     }
 
@@ -538,7 +553,7 @@ router.post('/:id/photos', requireAuth, async (req, res) => {
       });
     }
 
-    res.json({ urls, flagged: false });
+    res.json({ urls, flagged: false, pending: pendingAiUnavailable });
   } catch (err) {
     res.status(500).json({ error: mt('genericUploadError', lang) });
   }

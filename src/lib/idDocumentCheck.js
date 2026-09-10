@@ -34,9 +34,16 @@ function buildPrompt(fullName, birthDate) {
 Будь разумно снисходителен к транслитерации имён (например "Иван Петров" и "Ivan Petrov" — совпадение), но строг к очевидно разным именам или датам.`;
 }
 
+// unavailable=true значит, что автоматическая проверка НЕ проводилась (нет
+// ключа/Gemini недоступен) — раньше это выглядело как { ok: true }, то есть
+// точно так же, как "AI посмотрел и подтвердил, что это документ" — из-за
+// чего когда Gemini временно отключили, вообще любое фото (хоть школьный
+// табель) молча "проходило" загрузку без единой проверки, что это вообще
+// удостоверение личности. Теперь вызывающий код видит разницу и явно
+// предупреждает модератора, что документ нужно смотреть особенно внимательно.
 async function checkIdDocument(buffer, mimeType, { name, surname, birthDate }, lang = 'ru') {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return { ok: true }; // AI не настроен — не блокируем, решение целиком за модератором
+  if (!key) return { ok: true, unavailable: true };
 
   const l = safeLang(lang);
   const fullName = [name, surname].filter(Boolean).join(' ');
@@ -53,10 +60,10 @@ async function checkIdDocument(buffer, mimeType, { name, surname, birthDate }, l
     const data = await res.json();
     if (!res.ok) {
       console.error('ID document check AI error:', data.error?.message);
-      return { ok: true }; // ошибка AI — не блокируем, модератор проверит вручную
+      return { ok: true, unavailable: true };
     }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { ok: true };
+    if (!text) return { ok: true, unavailable: true };
     const parsed = JSON.parse(text);
 
     if (!parsed.isIdDocument) return { ok: false, reason: mt('idDocNotDocument', l) };
@@ -65,7 +72,7 @@ async function checkIdDocument(buffer, mimeType, { name, surname, birthDate }, l
     return { ok: true };
   } catch (err) {
     console.error('ID document check error:', err);
-    return { ok: true };
+    return { ok: true, unavailable: true };
   }
 }
 

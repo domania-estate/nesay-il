@@ -327,6 +327,12 @@ router.put('/id-document', requireAuth, async (req, res) => {
     const user = userResult.rows[0];
 
     const matches = photoBase64.match(/^data:([A-Za-z0-9\-+/]+);base64,(.+)$/);
+    // aiChecked=false означает, что автоматическая проверка подлинности
+    // документа не проводилась (Gemini недоступен/не настроен) — не то же
+    // самое, что "AI подтвердил документ". Показываем это модератору в
+    // очереди на верификацию, чтобы он не полагался на несуществующую
+    // проверку и посмотрел на фото особенно внимательно.
+    let aiChecked = false;
     if (matches) {
       const check = await checkIdDocument(
         Buffer.from(matches[2], 'base64'),
@@ -335,11 +341,12 @@ router.put('/id-document', requireAuth, async (req, res) => {
         l
       );
       if (!check.ok) return res.status(400).json({ error: check.reason });
+      aiChecked = !check.unavailable;
     }
 
     const url = await uploadIdDocumentFile(photoBase64, fileName, user.email);
     if (!url) return res.status(500).json({ error: 'Не удалось загрузить файл' });
-    await db.query('UPDATE users SET id_document_url = $1 WHERE id = $2', [url, req.user.id]);
+    await db.query('UPDATE users SET id_document_url = $1, id_document_ai_checked = $2 WHERE id = $3', [url, aiChecked, req.user.id]);
     res.json({ success: true, id_document_url: url });
   } catch (err) {
     console.error('ID document upload error:', err);
