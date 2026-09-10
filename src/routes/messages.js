@@ -3,6 +3,7 @@ const db = require('../../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { sendPushToUser } = require('../lib/pushNotify');
 const { rateLimitMiddleware } = require('../lib/rateLimit');
+const { emitToUser } = require('../lib/socket');
 const router = express.Router();
 
 // Отправка сообщений раньше не была ограничена по частоте — бот с валидным
@@ -93,11 +94,16 @@ router.get('/conversations/:id', requireAuth, async (req, res) => {
       'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
       [req.params.id]
     );
-    await db.query(
-      'UPDATE messages SET read = true WHERE conversation_id = $1 AND sender_id != $2 AND read = false',
+    const readUpdate = await db.query(
+      'UPDATE messages SET read = true WHERE conversation_id = $1 AND sender_id != $2 AND read = false RETURNING sender_id',
       [req.params.id, req.user.id]
     );
     res.json({ conversation: c, messages: messages.rows });
+
+    // Уведомляем автора прочитанных сообщений — обновить галочки без опроса.
+    if (readUpdate.rows.length > 0) {
+      emitToUser(readUpdate.rows[0].sender_id, 'messages:read', { conversationId: req.params.id });
+    }
   } catch (err) {
     console.error('Get messages error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -121,9 +127,15 @@ router.post('/conversations/:id/send', requireAuth, sendLimiter, async (req, res
     );
     res.json(msg.rows[0]);
 
+    // Сокет — обоим участникам сразу (получателю: новое сообщение;
+    // отправителю: чтобы синхронизировать другие открытые вкладки/устройства).
+    // HTTP-ответ выше уже ушёл — это не блокирует ответ клиенту.
+    const recipientId = c.buyer_id === req.user.id ? c.seller_id : c.buyer_id;
+    emitToUser(recipientId, 'message:new', { conversationId: req.params.id, message: msg.rows[0] });
+    emitToUser(req.user.id, 'message:new', { conversationId: req.params.id, message: msg.rows[0] });
+
     // Пуш получателю (не самому себе) — заголовок с именем+фамилией отправителя,
     // как он зарегистрирован в системе.
-    const recipientId = c.buyer_id === req.user.id ? c.seller_id : c.buyer_id;
     if (recipientId !== req.user.id) {
       const senderRow = await db.query('SELECT name, surname FROM users WHERE id = $1', [req.user.id]);
       const sender = senderRow.rows[0];

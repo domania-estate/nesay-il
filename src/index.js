@@ -477,10 +477,11 @@ app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'..','Nesay_IL.html')))
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
   console.log(`Сайт: http://localhost:${PORT}/Nesay_IL.html`);
 });
+require('./lib/socket').initSocket(server);
 
 // Поздравления с днём рождения + начисление 50₪ — проверяем сразу при
 // старте (чтобы не ждать первого тика после деплоя) и затем раз в час
