@@ -1,9 +1,30 @@
 require('dotenv').config();
 const express = require('express');
 const path    = require('path');
+const helmet  = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { ensureRateLimitSchema, rateLimitMiddleware } = require('./lib/rateLimit');
 
 const app = express();
+
+// Базовые security-заголовки (HSTS, отключение MIME-sniffing и т.п.).
+// CSP отключаем — это чистый JSON API, отдаваемые статические html/страницы
+// уже сами задают, что им нужно, дефолтная CSP от helmet их сломает.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
+
+// Внешний "грубый" щит от объёмных атак — считает в памяти каждой реплики
+// отдельно (не в Postgres, как lib/rateLimit.js), специально: при настоящем
+// потоке мусорных запросов сама база — самое дорогое место, куда нельзя
+// пускать нагрузку ради проверки лимита. Порог с большим запасом над
+// обычным поведением клиента (чат опрашивается раз в 4-5 сек), чтобы не
+// задеть реальных пользователей, но резать скриптованный залив.
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  max: 400,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов, попробуйте позже' },
+}));
 // За реальным IP клиента, а не адресом прокси Railway — нужно и для
 // анти-фрод проверок реферальной программы (lib/referralGuard.js), и для
 // лимита частоты запросов геокодинга (lib/rateLimit.js). "1" (доверять

@@ -2,7 +2,13 @@ const express = require('express');
 const db = require('../../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { sendPushToUser } = require('../lib/pushNotify');
+const { rateLimitMiddleware } = require('../lib/rateLimit');
 const router = express.Router();
+
+// Отправка сообщений раньше не была ограничена по частоте — бот с валидным
+// токеном мог заваливать чужие чаты спамом без каких-либо преград.
+// 60/мин с запасом покрывает обычную переписку человека.
+const sendLimiter = rateLimitMiddleware({ limit: 60, windowSeconds: 60, message: 'Слишком много сообщений, подождите немного' });
 
 // Список всех чатов текущего пользователя
 router.get('/conversations', requireAuth, async (req, res) => {
@@ -99,7 +105,7 @@ router.get('/conversations/:id', requireAuth, async (req, res) => {
 });
 
 // Отправить сообщение
-router.post('/conversations/:id/send', requireAuth, async (req, res) => {
+router.post('/conversations/:id/send', requireAuth, sendLimiter, async (req, res) => {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: 'Пустое сообщение' });
   try {

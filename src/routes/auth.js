@@ -8,8 +8,15 @@ const { createClient } = require('@supabase/supabase-js');
 const { creditReferralIfEligible } = require('../lib/referralGuard');
 const { checkIdDocument } = require('../lib/idDocumentCheck');
 const { t: mt, safeLang } = require('../lib/moderationI18n');
+const { rateLimitMiddleware } = require('../lib/rateLimit');
 
 const router = express.Router();
+
+// Раньше вход и регистрация не были ограничены по частоте вообще — можно
+// было скриптом перебирать пароли (login) или заливать базу фейковыми
+// аккаунтами (register). Лимиты по IP, общие на все реплики (см. lib/rateLimit.js).
+const loginLimiter = rateLimitMiddleware({ limit: 15, windowSeconds: 300, message: 'Слишком много попыток входа, попробуйте позже' });
+const registerLimiter = rateLimitMiddleware({ limit: 10, windowSeconds: 3600, message: 'Слишком много регистраций с этого адреса, попробуйте позже' });
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -50,7 +57,7 @@ async function uploadIdDocumentFile(base64, fileName, emailForPath) {
 }
 
 // Регистрация
-router.post('/register', [
+router.post('/register', registerLimiter, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }),
   body('name').trim().notEmpty(),
@@ -186,7 +193,7 @@ router.post('/register', [
 });
 
 // Вход
-router.post('/login', [
+router.post('/login', loginLimiter, [
   body('email').isEmail().normalizeEmail(),
   body('password').notEmpty(),
 ], async (req, res) => {
